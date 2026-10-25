@@ -1,0 +1,18 @@
+{
+  "name": "Word Beat · 200 palabras en inglés",
+  "short_name": "Word Beat",
+  "description": "Aprendé las 200 palabras más usadas del inglés hablado y de las canciones en 10 minutos por día.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF2FB",
+  "theme_color": "#2B4BD8",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
