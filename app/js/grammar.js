@@ -138,7 +138,35 @@
     "soñar": { sc: "ue" },
     llover: { sc: "ue" },
     romper: { pp: "roto" },
-    tocar: { pret: "toqué tocaste tocó tocamos tocasteis tocaron" }
+    tocar: { pret: "toqué tocaste tocó tocamos tocasteis tocaron" },
+    cerrar: { sc: "ie" }, empezar: { sc: "ie" }, comenzar: { sc: "ie" }, perder: { sc: "ie" }, sentar: { sc: "ie" },
+    preferir: { sc: "ie" }, sugerir: { sc: "ie" }, convertir: { sc: "ie" }, requerir: { sc: "ie" }, advertir: { sc: "ie" },
+    volver: { sc: "ue", pp: "vuelto" }, devolver: { sc: "ue", pp: "devuelto" }, resolver: { sc: "ue", pp: "resuelto" },
+    dormir: { sc: "ue" }, mover: { sc: "ue" }, costar: { sc: "ue" }, aprobar: { sc: "ue" }, demostrar: { sc: "ue" }, contar: { sc: "ue" },
+    pedir: { sc: "i" }, medir: { sc: "i" }, repetir: { sc: "i" }, servir: { sc: "i" }, competir: { sc: "i" },
+    seguir: { sc: "i", pres: "sigo sigues sigue seguimos seguís siguen" },
+    conseguir: { sc: "i", pres: "consigo consigues consigue conseguimos conseguís consiguen" },
+    elegir: { sc: "i", pres: "elijo eliges elige elegimos elegís eligen" },
+    escribir: { pp: "escrito" }, describir: { pp: "descrito" }, abrir: { pp: "abierto" }, imprimir: { pp: "impreso" },
+    leer: { pp: "leído" },
+    traer: { pres: "traigo traes trae traemos traéis traen", pret: "traje trajiste trajo trajimos trajisteis trajeron", ger: "trayendo", pp: "traído" },
+    tener: { pres: "tengo tienes tiene tenemos tenéis tienen", pret: "tuve tuviste tuvo tuvimos tuvisteis tuvieron", fut: "tendr" },
+    mantener: { pres: "mantengo mantienes mantiene mantenemos mantenéis mantienen", pret: "mantuve mantuviste mantuvo mantuvimos mantuvisteis mantuvieron", fut: "mantendr" },
+    obtener: { pres: "obtengo obtienes obtiene obtenemos obtenéis obtienen", pret: "obtuve obtuviste obtuvo obtuvimos obtuvisteis obtuvieron", fut: "obtendr" },
+    contener: { pres: "contengo contienes contiene contenemos contenéis contienen", pret: "contuve contuviste contuvo contuvimos contuvisteis contuvieron", fut: "contendr" },
+    producir: { pret: "produje produjiste produjo produjimos produjisteis produjeron" },
+    conducir: { pret: "conduje condujiste condujo condujimos condujisteis condujeron" },
+    reducir: { pret: "reduje redujiste redujo redujimos redujisteis redujeron" },
+    traducir: { pret: "traduje tradujiste tradujo tradujimos tradujisteis tradujeron" },
+    reunir: { pres: "reúno reúnes reúne reunimos reunís reúnen" },
+    enviar: { pres: "envío envías envía enviamos enviáis envían" },
+    actualizar: {}, poder: { sc: "ue", pret: "pude pudiste pudo pudimos pudisteis pudieron", fut: "podr" },
+    proponer: { pres: "propongo propones propone proponemos proponéis proponen", pret: "propuse propusiste propuso propusimos propusisteis propusieron", fut: "propondr", pp: "propuesto" },
+    disponer: { pres: "dispongo dispones dispone disponemos disponéis disponen", pret: "dispuse dispusiste dispuso dispusimos dispusisteis dispusieron", fut: "dispondr", pp: "dispuesto" },
+    corregir: { sc: "i", pres: "corrijo corriges corrige corregimos corregís corrigen" },
+    invertir: { sc: "ie" }, recomendar: { sc: "ie" }, encender: { sc: "ie" }, atender: { sc: "ie" }, almorzar: { sc: "ue" },
+    prevenir: { pres: "prevengo previenes previene prevenimos prevenís previenen", pret: "previne previniste previno previnimos previnisteis previnieron", fut: "prevendr", ger: "previniendo" },
+    continuar: { pres: "continúo continúas continúa continuamos continuáis continúan" }
   };
 
   const END = {
@@ -164,10 +192,20 @@
   }
   function stem(inf) { return inf.slice(0, -2); }
   function stemChange(st, sc) {
-    const from = sc === "ie" ? "e" : "o";
+    const from = sc === "ue" ? "o" : "e";
+    const to = sc === "ie" ? "ie" : sc === "ue" ? "ue" : "i";
     const i = st.lastIndexOf(from);
-    return i < 0 ? st : st.slice(0, i) + (sc === "ie" ? "ie" : "ue") + st.slice(i + 1);
+    return i < 0 ? st : st.slice(0, i) + to + st.slice(i + 1);
   }
+  // Cambio débil de los verbos -ir con cambio de raíz (sintió, durmió, pidió, sintiendo).
+  function weakChange(st, sc) {
+    const from = sc === "ue" ? "o" : "e";
+    const to = sc === "ue" ? "u" : "i";
+    const i = st.lastIndexOf(from);
+    return i < 0 ? st : st.slice(0, i) + to + st.slice(i + 1);
+  }
+  const VOW = "aeo";
+  function isUir(inf) { return /uir$/.test(inf) && !/guir$/.test(inf); }
 
   const Es = {
     pres(inf, p) {
@@ -175,17 +213,38 @@
       if (x.pres) return x.pres.split(" ")[p];
       let st = stem(inf);
       if (x.sc && [0, 1, 2, 5].includes(p)) st = stemChange(st, x.sc);
+      // construir → construyo; conocer → conozco
+      if (isUir(inf) && [0, 1, 2, 5].includes(p)) st += "y";
+      if (p === 0 && /[aeiou]c(er|ir)$/.test(inf)) return st.slice(0, -1) + "zco";
       return st + END.pres[vclass(inf)][p];
     },
     pret(inf, p) {
       const x = IRR[inf] || {};
       if (x.pret) return x.pret.split(" ")[p];
-      return stem(inf) + END.pret[vclass(inf)][p];
+      let st = stem(inf);
+      const cls = vclass(inf);
+      if (p === 0 && cls === "ar") {
+        // ortografía: pagué, busqué, empecé
+        if (/car$/.test(inf)) return st.slice(0, -1) + "qué";
+        if (/gar$/.test(inf)) return st + "ué";
+        if (/zar$/.test(inf)) return st.slice(0, -1) + "cé";
+      }
+      if ((p === 2 || p === 5) && cls === "ir" && x.sc) st = weakChange(st, x.sc);
+      if ((p === 2 || p === 5) && cls !== "ar" && (isUir(inf) || VOW.includes(st.slice(-1)))) return st + (p === 2 ? "yó" : "yeron");
+      return st + END.pret[cls][p];
     },
     fut(inf, p) { const x = IRR[inf] || {}; return (x.fut || inf) + END.fut[p]; },
     cond(inf, p) { const x = IRR[inf] || {}; return (x.fut || inf) + END.cond[p]; },
     pp(inf) { const x = IRR[inf] || {}; return x.pp || stem(inf) + (vclass(inf) === "ar" ? "ado" : "ido"); },
-    ger(inf) { const x = IRR[inf] || {}; return x.ger || stem(inf) + (vclass(inf) === "ar" ? "ando" : "iendo"); }
+    ger(inf) {
+      const x = IRR[inf] || {};
+      if (x.ger) return x.ger;
+      let st = stem(inf);
+      if (vclass(inf) === "ar") return st + "ando";
+      if (vclass(inf) === "ir" && x.sc) st = weakChange(st, x.sc);
+      if (isUir(inf) || VOW.includes(st.slice(-1))) return st + "yendo";
+      return st + "iendo";
+    }
   };
 
   function esVerbGroup(inf, tense, p) {
@@ -284,8 +343,8 @@
   }
 
   function buildEs(entry, tense, subj, pol, timeEs) {
-    const sp = SP[entry.w];
-    if (!sp) return "";
+    const sp = SP[entry.w] || entry.spx;
+    if (!sp || !sp.v) return "";
     const p = subj.p;
     let subjEs = subj.impersonal ? "" : subj.es;
     let clitic = sp.pre || "";

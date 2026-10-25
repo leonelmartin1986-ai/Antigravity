@@ -177,6 +177,7 @@
     $("v-due").textContent = due;
     $("v-new").textContent = fresh;
     $("v-learned").textContent = E.countLearned(S);
+    $("v-learned-lab").textContent = "de " + WORDS.length + " aprendidas";
 
     const started = d.rounds > 0;
     $("btn-start-label").textContent = S.lives === 0 ? "Práctica libre" : started ? "Otra ronda" : "Jugar una ronda";
@@ -401,8 +402,10 @@
     }));
   }
 
+  function srcTag(e) { return e.so ? " · canciones" : e.src === "R" ? " · de tus reuniones" : e.src === "N" ? " · negocios" : ""; }
+
   function renderIntro(e, noKnown) {
-    let body = '<p class="q-type"><span>Palabra nueva</span><span>#' + e.rank + (e.so ? " · canciones" : "") + "</span></p>";
+    let body = '<p class="q-type"><span>Palabra nueva</span><span>#' + e.rank + srcTag(e) + "</span></p>";
     body += '<p class="intro-word">' + esc(e.w) + "</p>";
     body += '<div class="intro-meta"><button type="button" class="speak" data-say="' + esc(e.w) + '">' + ICON_SPEAK + "Se dice «" + esc(e.pr) + "»</button><span class=\"pill\">" + esc(TYPE_ES[e.t]) + "</span></div>";
     body += '<p class="intro-es">' + esc(e.es) + "</p>";
@@ -603,6 +606,8 @@
       if (filter === "learned" && !(intro && ws.box >= E.LEARNED_BOX)) return false;
       if (filter === "verb" && !(e.t === "v" || e.t === "aux")) return false;
       if (filter === "song" && !e.so) return false;
+      if (filter === "work" && e.src !== "R") return false;
+      if (filter === "biz" && e.src !== "N") return false;
       if (q && !(e.w.toLowerCase().includes(q) || e.es.toLowerCase().includes(q) || (e.f || "").toLowerCase().includes(q))) return false;
       return true;
     });
@@ -622,7 +627,7 @@
   function openWord(w) {
     const e = BY_WORD[w];
     const ws = S.words[w];
-    let html = '<div class="sheet-head"><div><p class="eyebrow">#' + e.rank + " · " + esc(TYPE_ES[e.t]) + (e.so ? " · canciones" : "") + '</p><h2 id="sheet-title">' + esc(e.w) + '</h2></div><button type="button" class="icon-btn" id="sheet-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>';
+    let html = '<div class="sheet-head"><div><p class="eyebrow">#' + e.rank + " · " + esc(TYPE_ES[e.t]) + srcTag(e) + '</p><h2 id="sheet-title">' + esc(e.w) + '</h2></div><button type="button" class="icon-btn" id="sheet-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>';
     html += '<div class="intro-meta" style="justify-content:flex-start"><button type="button" class="speak" data-say="' + esc(e.w) + '">' + ICON_SPEAK + "«" + esc(e.pr) + "»</button></div>";
     html += '<p class="intro-es" style="text-align:left">' + esc(e.es) + "</p>";
     html += '<div class="memo"><b>Ancla para recordarla</b>' + esc(e.mn) + "</div>";
@@ -687,7 +692,7 @@
     $("stats-grid").innerHTML = [
       mini(Math.round(totalMs / 60000) + " min", "tiempo total"),
       mini(acc + "%", "aciertos (" + S.stats.answers + " respuestas)"),
-      mini(S.stats.introduced + "/200", "palabras vistas"),
+      mini(S.stats.introduced + "/" + WORDS.length, "palabras vistas"),
       mini(E.countLearned(S), "aprendidas (caja 4+)"),
       mini(S.streak.best + (S.streak.best === 1 ? " día" : " días"), "mejor racha"),
       mini(activeDays, "días jugados"),
@@ -718,7 +723,7 @@
     let unseen = 0;
     WORDS.forEach(e => { const ws = S.words[e.w]; if (ws && ws.intro) seenBox[ws.box]++; else unseen++; });
     const rows = [["Sin ver", unseen, false]].concat(seenBox.map((n, i) => [i === 0 ? "Nueva" : "Caja " + i + " · " + E.INTERVALS[i] + " d", n, i >= E.LEARNED_BOX]));
-    $("chart-boxes").innerHTML = rows.map(r => '<div class="box-row' + (r[2] ? " learned" : "") + '"><span>' + esc(r[0]) + '</span><div class="box-track"><div class="box-fill" style="width:' + (r[1] / 2) + '%"></div></div><span class="num" style="text-align:right">' + r[1] + "</span></div>").join("");
+    $("chart-boxes").innerHTML = rows.map(r => '<div class="box-row' + (r[2] ? " learned" : "") + '"><span>' + esc(r[0]) + '</span><div class="box-track"><div class="box-fill" style="width:' + (r[1] / WORDS.length * 100).toFixed(1) + '%"></div></div><span class="num" style="text-align:right">' + r[1] + "</span></div>").join("");
 
     // aciertos por tiempo verbal
     const agg = {};
@@ -784,7 +789,7 @@
     save();
     const lvName = E.LEVELS[res.suggested].name;
     $("pl-card").innerHTML = '<p class="eyebrow">Resultado</p><h2 class="sum-title">' + (res.marked ? "Ya sabés " + res.marked + " palabras" : "Empezás desde el principio") + "</h2>" +
-      '<div class="boxes">' + res.perBand.map((n, b) => '<div class="box-row' + (n >= 4 ? " learned" : "") + '"><span>Palabras ' + (b * 50 + 1) + "–" + (b * 50 + 50) + '</span><div class="box-track"><div class="box-fill" style="width:' + n * 20 + '%"></div></div><span style="text-align:right">' + n + "/5</span></div>").join("") + "</div>" +
+      '<div class="boxes">' + res.perBand.map((n, b) => '<div class="box-row' + (n >= E.PER_BAND ? " learned" : "") + '"><span>Palabras ' + (E.BANDS[b][0] + 1) + "–" + E.BANDS[b][1] + '</span><div class="box-track"><div class="box-fill" style="width:' + (n / E.PER_BAND * 100) + '%"></div></div><span style="text-align:right">' + n + "/" + E.PER_BAND + "</span></div>").join("") + "</div>" +
       '<p class="hint">' + (res.marked ? "Esas palabras se saltean: vuelven en los próximos días para confirmarlas. " : "") + "Dificultad sugerida: <strong>" + lvName + "</strong>.</p>" +
       '<div class="sum-actions"><button type="button" class="btn btn-play" id="pl-use">Usar dificultad ' + lvName + '</button><button type="button" class="btn btn-ghost" id="pl-keep">Mantener la actual</button></div>';
     $("pl-use").addEventListener("click", () => { S.settings.level = res.suggested; save(); go("home"); });
@@ -922,6 +927,7 @@
   });
 
   /* ---------- arranque ---------- */
+  $("v-total-words").textContent = WORDS.length;
   applyCalm();
   go("home");
   setInterval(() => { if (current === "home") renderHome(); }, 30000);

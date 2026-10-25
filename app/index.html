@@ -78,14 +78,14 @@
 
       <article class="tip placement-banner" id="placement-banner" hidden>
         <p class="eyebrow">¿Ya sabés algo de inglés?</p>
-        <p>Hacé la prueba de nivel (20 preguntas, 2 minutos). Las palabras que ya sabés se saltean y la app te sugiere una dificultad.</p>
+        <p>Hacé la prueba de nivel (32 preguntas, unos 3 minutos). Las palabras que ya sabés se saltean y la app te sugiere una dificultad.</p>
         <button class="btn btn-ghost" id="btn-placement-home" type="button">Hacer la prueba de nivel</button>
       </article>
 
       <div class="chips-row">
         <div class="mini"><p class="mini-num" id="v-due">0</p><p class="mini-lab">repasos listos</p></div>
         <div class="mini"><p class="mini-num" id="v-new">0</p><p class="mini-lab">nuevas hoy</p></div>
-        <div class="mini"><p class="mini-num" id="v-learned">0</p><p class="mini-lab">de 200 aprendidas</p></div>
+        <div class="mini"><p class="mini-num" id="v-learned">0</p><p class="mini-lab" id="v-learned-lab">de 1000 aprendidas</p></div>
       </div>
 
       <div class="notice" id="v-lives-note" hidden></div>
@@ -147,7 +147,7 @@
 
     <!-- PALABRAS -->
     <section class="view" id="view-words" data-view="words" hidden>
-      <h2 class="view-title">Las 200 palabras</h2>
+      <h2 class="view-title">Las <span id="v-total-words">1000</span> palabras</h2>
       <label class="search">
         <span class="sr">Buscar palabra</span>
         <input id="word-search" type="search" placeholder="Buscar en inglés o español" autocomplete="off">
@@ -159,6 +159,8 @@
         <button type="button" class="chip" data-filter="learned">Aprendidas</button>
         <button type="button" class="chip" data-filter="verb">Verbos</button>
         <button type="button" class="chip" data-filter="song">De canciones</button>
+        <button type="button" class="chip" data-filter="work">De mis reuniones</button>
+        <button type="button" class="chip" data-filter="biz">Negocios</button>
       </div>
       <ol class="word-list" id="word-list"></ol>
     </section>
@@ -204,7 +206,7 @@
       </div>
 
       <h3 class="sub">Prueba de nivel</h3>
-      <p class="hint">Mide qué tramos de las 200 palabras ya sabés y los saltea. Podés repetirla cuando quieras.</p>
+      <p class="hint">Mide qué tramos de las 1000 palabras ya sabés y los saltea. Podés repetirla cuando quieras.</p>
       <button class="btn btn-ghost" id="btn-placement" type="button">Hacer la prueba de nivel</button>
 
       <h3 class="sub">Copia de seguridad</h3>
@@ -230,7 +232,7 @@
           </div>
         </div>
       </div>
-      <p class="credits">Frecuencias: SUBTLEX-US (Brysbaert y New, 2009) y estudios de corpus de letras de canciones. Detalle en RESEARCH.md.</p>
+      <p class="credits">Frecuencias: SUBTLEX-US (Brysbaert y New, 2009), estudios de letras de canciones y tus últimas 20 reuniones del proyecto NexGen. Detalle en RESEARCH.md.</p>
     </section>
   </main>
 
@@ -260,6 +262,7 @@
 <!--APP-END-->
 <script src="js/words.js"></script>
 <script src="js/grammar.js"></script>
+<script src="js/words-work.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/snake.js"></script>
 <script src="js/app.js"></script>

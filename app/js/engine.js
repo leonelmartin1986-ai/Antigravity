@@ -37,7 +37,10 @@
     { id: "ten", name: "Diez en la bolsa", desc: "10 palabras presentadas.", test: s => s.stats.introduced >= 10 },
     { id: "fifty", name: "Medio centenar", desc: "50 palabras presentadas.", test: s => s.stats.introduced >= 50 },
     { id: "hundred", name: "Las primeras 100", desc: "100 palabras presentadas.", test: s => s.stats.introduced >= 100 },
-    { id: "all", name: "Las 200", desc: "Viste las 200 palabras.", test: s => s.stats.introduced >= 200 },
+    { id: "all", name: "Las 200", desc: "Viste las 200 palabras básicas.", test: s => s.stats.introduced >= 200 },
+    { id: "w500", name: "Quinientas", desc: "500 palabras presentadas.", test: s => s.stats.introduced >= 500 },
+    { id: "w1000", name: "Las 1000", desc: "Viste las 1000 palabras.", test: s => s.stats.introduced >= 1000 },
+    { id: "learned500", name: "Inglés de trabajo", desc: "500 palabras aprendidas.", test: s => countLearned(s) >= 500 },
     { id: "learned25", name: "Memoria firme", desc: "25 palabras en caja 4 o más.", test: s => countLearned(s) >= 25 },
     { id: "learned100", name: "Vocabulario sólido", desc: "100 palabras aprendidas.", test: s => countLearned(s) >= 100 },
     { id: "streak3", name: "Tres al hilo", desc: "Racha de 3 días.", test: s => s.streak.best >= 3 },
@@ -479,7 +482,7 @@
   let WORD_INDEX = null;
   function wordFor(w) {
     if (!WORD_INDEX) {
-      const list = typeof module !== "undefined" && module.exports ? require("./words.js") : root.WORDS;
+      const list = typeof module !== "undefined" && module.exports ? require("./words-work.js") : root.WORDS;
       WORD_INDEX = Object.fromEntries(list.map(e => [e.w, e]));
     }
     return WORD_INDEX[w] || {};
@@ -584,33 +587,37 @@
     s.stats.known++;
   }
 
-  // Prueba de nivel: 5 palabras de cada tramo de 50 (por frecuencia).
+  // Tramos de la prueba de nivel (por frecuencia): las básicas en tramos de 50, las de trabajo en tramos de 200.
+  const BANDS = [[0, 50], [50, 100], [100, 150], [150, 200], [200, 400], [400, 600], [600, 800], [800, 1000]];
+  const PER_BAND = 4;
+
   function placementQuiz(words, rnd) {
     const out = [];
-    for (let b = 0; b < 4; b++) {
-      const band = words.slice(b * 50, b * 50 + 50);
-      shuffle(band, rnd).slice(0, 5).forEach(e => out.push(Object.assign({ band: b }, buildKind("meaning", e, words, rnd, 1))));
-    }
+    BANDS.forEach(([a, b], i) => {
+      const band = words.slice(a, b);
+      shuffle(band, rnd).slice(0, PER_BAND).forEach(e => out.push(Object.assign({ band: i }, buildKind("meaning", e, words, rnd, 1))));
+    });
     return out;
   }
 
-  // Los tramos con 4 o 5 aciertos se marcan como sabidos (repartiendo los repasos en 10 días).
+  // Un tramo se marca como sabido si acertás todas sus preguntas (los repasos se reparten en 14 días).
   function applyPlacement(s, words, results, now, rnd) {
-    const perBand = [0, 0, 0, 0];
+    const perBand = BANDS.map(() => 0);
     results.forEach(r => { if (r.ok) perBand[r.band]++; });
     let marked = 0;
     const bands = [];
     perBand.forEach((n, b) => {
-      if (n >= 4) {
+      if (n >= PER_BAND) {
         bands.push(b);
-        words.slice(b * 50, b * 50 + 50).forEach(e => {
+        words.slice(BANDS[b][0], BANDS[b][1]).forEach(e => {
           const ws = s.words[e.w];
-          if (!(ws && ws.intro)) { markKnown(s, e.w, now, 1 + Math.floor(rnd() * 10)); marked++; }
+          if (!(ws && ws.intro)) { markKnown(s, e.w, now, 1 + Math.floor(rnd() * 14)); marked++; }
         });
       }
     });
     const total = perBand.reduce((a, b) => a + b, 0);
-    const suggested = total >= 17 ? 3 : total >= 10 ? 2 : 1;
+    const max = BANDS.length * PER_BAND;
+    const suggested = total >= max * 0.75 ? 3 : total >= max * 0.45 ? 2 : 1;
     s.stats.placementDone = now;
     return { perBand, bands, marked, suggested };
   }
@@ -649,7 +656,7 @@
   }
 
   const Engine = {
-    DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS, LEVELS,
+    BANDS, PER_BAND, DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS, LEVELS,
     markKnown, placementQuiz, applyPlacement, applySnake, pick,
     dayKey, startOfDay, makeRng, shuffle, forms, formLabels,
     newState, migrate, wordState, today, countLearned, boxCounts,

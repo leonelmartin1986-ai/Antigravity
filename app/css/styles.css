@@ -274,7 +274,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .chart .goal-line { stroke: var(--sun); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .chart .grid-line { stroke: var(--line); stroke-width: 1; }
 .boxes { display: grid; gap: 6px; }
-.box-row { display: grid; grid-template-columns: 110px 1fr 36px; align-items: center; gap: 10px; font-size: 14px; }
+.box-row { display: grid; grid-template-columns: 136px 1fr 36px; align-items: center; gap: 10px; font-size: 14px; }
 .box-track { height: 14px; border-radius: 99px; background: var(--surface); overflow: hidden; }
 .box-fill { height: 100%; background: var(--accent); border-radius: 99px; }
 .box-row.learned .box-fill { background: var(--ok); }

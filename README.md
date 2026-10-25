@@ -1,6 +1,6 @@
 # Word Beat
 
-Juego para el teléfono que enseña las **200 palabras más usadas del inglés hablado y de las canciones**, con todas sus variantes y tiempos verbales, en **10 minutos por día**. Está diseñado con las técnicas de aprendizaje con más respaldo científico, adaptadas a adultos con TDAH.
+Juego para el teléfono que enseña **1000 palabras en inglés**: las 200 más usadas del inglés hablado y de las canciones, 398 sacadas de tus últimas 20 reuniones de trabajo y 402 de vocabulario de negocios. Cada una con sus variantes y tiempos verbales, en **10 minutos por día**. Está diseñado con las técnicas de aprendizaje con más respaldo científico, adaptadas a adultos con TDAH.
 
 - **Mnemotecnia:** cada palabra tiene un ancla en español. Por ejemplo: «KNOW se dice NOU: NO sé... ¡pero ahora sí lo KNOW!».
 - **Repaso espaciado:** cada palabra vuelve justo antes de que la olvides (1, 2, 4, 7, 15, 30 y 60 días).
@@ -47,7 +47,8 @@ En **Ajustes** podés cambiar las palabras nuevas por día (3 a 10), la meta (5 
 app/                  la app (se publica tal cual)
   index.html
   css/styles.css
-  js/words.js         las 200 palabras: traducción, pronunciación, formas, mnemotecnia y ejemplos
+  js/words.js         las 200 palabras básicas: traducción, pronunciación, formas, mnemotecnia y ejemplos
+  js/words-work.js    las 800 palabras de trabajo (reuniones + negocios) en formato compacto
   js/grammar.js       11 tiempos en inglés (afirmativa, negativa, pregunta) y su traducción al castellano
   js/engine.js        repaso espaciado, preguntas por dificultad, puntos, vidas, racha y logros (sin DOM)
   js/snake.js         juego de la viborita de letras
@@ -58,7 +59,7 @@ android/              envoltorio Android (WebView + voz del sistema) que empaque
 tests/engine.test.js  tests del motor (node --test)
 tools/                generador de WORDS.md y de la versión de un solo archivo
 RESEARCH.md           de dónde salen las palabras y por qué funciona el método
-WORDS.md              lista de las 200 palabras con formas y tiempos verbales
+WORDS.md              lista de las 1000 palabras con formas y tiempos verbales
 ```
 
 ## Desarrollo

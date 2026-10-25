@@ -1,13 +1,25 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const WORDS = require("../app/js/words.js");
+const WORDS = require("../app/js/words-work.js");
 const E = require("../app/js/engine.js");
 
 const T0 = new Date("2026-10-25T10:00:00").getTime();
 
-test("el banco tiene 200 palabras únicas", () => {
-  assert.strictEqual(WORDS.length, 200);
-  assert.strictEqual(new Set(WORDS.map(w => w.w)).size, 200);
+test("el banco tiene 1000 palabras únicas: 200 básicas y 800 de trabajo", () => {
+  assert.strictEqual(WORDS.length, 1000);
+  assert.strictEqual(new Set(WORDS.map(w => w.w.toLowerCase())).size, 1000);
+  assert.ok(WORDS.slice(200).every(w => w.src === "R" || w.src === "N"));
+  assert.ok(WORDS.filter(w => w.src === "R").length >= 300);
+  WORDS.forEach((w, i) => assert.strictEqual(w.rank, i + 1));
+});
+
+test("formas regulares e irregulares de los verbos nuevos", () => {
+  const f = w => WORDS.find(x => x.w === w).f;
+  assert.strictEqual(f("configure"), "configure|configures|configured|configured|configuring");
+  assert.strictEqual(f("apply"), "apply|applies|applied|applied|applying");
+  assert.strictEqual(f("scan"), "scan|scans|scanned|scanned|scanning");
+  assert.strictEqual(f("send"), "send|sends|sent|sent|sending");
+  assert.strictEqual(WORDS.find(x => x.w === "shelf").f, "shelf|shelves");
 });
 
 test("todo verbo tiene 5 formas y frases bien armadas en cada tiempo", () => {
@@ -179,7 +191,7 @@ test("«Ya la sé» y prueba de nivel marcan palabras como sabidas", () => {
   assert.strictEqual(s.words.go.box, 3);
   assert.ok(s.words.go.due > T0);
   const quiz = E.placementQuiz(WORDS, E.makeRng(5));
-  assert.strictEqual(quiz.length, 20);
+  assert.strictEqual(quiz.length, E.BANDS.length * E.PER_BAND);
   const res = E.applyPlacement(s, WORDS, quiz.map(q => ({ band: q.band, ok: q.band < 2 })), T0, E.makeRng(5));
   assert.deepStrictEqual(res.bands, [0, 1]);
   assert.strictEqual(res.marked, 99);

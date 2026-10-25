@@ -24,6 +24,21 @@ El resultado son **180 palabras del inglés hablado + 20 de canciones**. 26 pala
 - Un estudio sobre 479 canciones de Billboard (unas 220.000 palabras) encontró que conocer unas 3.000 familias de palabras cubre el 95% de las letras. También encontró que las combinaciones más frecuentes son contracciones como *I don't, I can't, you don't* ([Temple University](https://scholarshare.temple.edu/handle/20.500.12613/3488)).
 - No existe una lista oficial única de palabras de canciones: los estudios cambian según el corpus y según si cuentan o no las palabras funcionales. Por eso las 20 palabras de canciones se eligieron por coincidencia entre esas fuentes, no desde un ranking único.
 
+### Palabras 201 a 1000: vocabulario de trabajo
+
+**De tus reuniones (398 palabras, marcadas «De mis reuniones»)**
+
+- **Fuente:** las 20 transcripciones más recientes del proyecto NexGen (Chacomer) en tu OneDrive (`Documentos/Claude/Projects/Chacomer Proyect/notes/transcript`), del 15 de julio al 5 de octubre de 2026: talleres de contabilidad de costos e impuestos, EAM y mantenimiento preventivo, plantillas y directivas de ubicación, embalaje, presupuestos y pedidos de venta, comisiones y dimensiones financieras.
+- **Conteo:** 16 de las 20 transcripciones se procesaron con un script (56.770 palabras útiles, 6.487 distintas), sin artículos, preposiciones, muletillas ni nombres de personas, y agrupando singular y plural. Las otras 4 (01/10, 04/08 preparación S010, 03/08 cierre S009 y 17/07 dimensiones financieras) se revisaron leyéndolas, porque la herramienta las devolvió de una forma que no permitía pasarlas al script; de ahí salieron palabras como garantía, mano de obra, feriado, auditoría y riesgo.
+- **Las más frecuentes:** activo (347), costo (320), sistema (312), dato (309), proyecto (280), línea (265), cuenta (262), plan (250), venta (246), pedido (221), grupo (213), mantenimiento (210), centro (210), fecha (206), artículo (203), cliente (158), diario (157), compra (152), tarea (144), categoría (141), ubicación (138), código (135), factura (135).
+- **De castellano a inglés:** cada concepto se tradujo a la palabra que se usa en inglés de negocios y en Dynamics 365 (activo → *asset*, pedido → *order*, almacén → *warehouse*, asiento → *entry*, previsión → *forecast*, imputación → *allocation*). Se sacaron las que ya estaban entre las 200 básicas (ver, hacer, trabajo...).
+
+**Vocabulario de negocios (402 palabras, marcadas «Negocios»)**
+
+Completa hasta 1000 con inglés de oficina, ERP, finanzas, logística, sistemas y reuniones: *deadline, stakeholder, payroll, reconciliation, freight, barcode, deployment, roadmap*, además de verbos de trabajo (*approve, submit, schedule, hire, lead*), adjetivos (*urgent, reliable, profitable*) y conectores (*however, therefore, meanwhile*). Incluye los falsos amigos más traicioneros: *actual* (real), *actually* (en realidad), *eventually* (al final), *realize* (darse cuenta), *attend* (asistir).
+
+**Orden:** después de las 200 básicas, las palabras de tus reuniones y las de negocios se intercalan una y una, cada grupo en su orden de frecuencia. Así la primera palabra nueva de trabajo es *case* (caso), seguida de *agenda*, *example* y *deadline*.
+
 La lista completa con formas y tiempos verbales está en [WORDS.md](WORDS.md).
 
 ## 2. Qué funciona para aprender (y qué cambia con TDAH)
