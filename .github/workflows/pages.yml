@@ -1,8 +1,7 @@
 name: Publicar app en GitHub Pages
 
+# Manual: activá primero Settings → Pages → Source: GitHub Actions y después corrélo desde la pestaña Actions.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

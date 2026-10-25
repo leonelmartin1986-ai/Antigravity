@@ -57,7 +57,13 @@
   }
   if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
   function speak(text) {
-    if (!("speechSynthesis" in window) || !text) return;
+    if (!text) return;
+    // En la app de Android la voz la pone el sistema (WebView no trae speechSynthesis).
+    if (window.AndroidTTS) {
+      try { window.AndroidTTS.speak(String(text), Number(S.settings.rate) || 0.85); } catch (e) { /* la voz es opcional */ }
+      return;
+    }
+    if (!("speechSynthesis" in window)) return;
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);

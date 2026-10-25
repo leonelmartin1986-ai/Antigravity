@@ -10,19 +10,22 @@ Juego para el teléfono que enseña las **200 palabras más usadas del inglés h
 - **Pensada para TDAH:** rondas de 2 minutos, una sola tarea por pantalla, feedback inmediato y nunca te bloquea (sin vidas pasás a práctica libre).
 - Pronuncia en voz alta, funciona sin internet y se instala como una app. Tu progreso queda guardado en el teléfono.
 
-## Instalarla en el teléfono
+## Instalarla en Android (APK)
 
-La app es una **PWA** (web instalable): no pasa por la tienda de apps.
+1. En el teléfono, abrí la sección **Releases** del repositorio en GitHub y entrá a la última versión (`Word Beat 1.0.x`).
+2. Descargá el archivo `WordBeat-1.0.x.apk`.
+3. Abrilo. Si Android lo pide, permití **Instalar apps de origen desconocido** para el navegador o el gestor de archivos.
+4. Tocá **Instalar** y abrí **Word Beat** desde el cajón de apps.
 
-1. Publicala en GitHub Pages (una sola vez):
-   1. En GitHub, andá a **Settings → Pages** del repositorio.
-   2. En **Source**, elegí **GitHub Actions**.
-   3. Uní esta rama a `main`. El workflow `Publicar app en GitHub Pages` corre los tests y publica la carpeta `app/`.
-   4. La dirección queda como `https://<tu-usuario>.github.io/<repositorio>/`. Si el repositorio es privado, GitHub Pages requiere un plan pago; si no, hacelo público.
-2. Abrí esa dirección en el teléfono:
-   - **Android (Chrome):** menú ⋮ → **Instalar app** o **Agregar a la pantalla principal**.
-   - **iPhone (Safari):** botón Compartir → **Agregar a inicio**.
-3. Abrila desde el ícono. Desde ahí funciona sin conexión.
+Cada vez que se actualiza `main`, GitHub Actions compila un APK nuevo (workflow `Compilar APK de Android`) y lo publica en una Release. Las versiones nuevas se instalan encima de la anterior y conservan el progreso, porque todas se firman con la misma llave (`android/wordbeat.keystore`). Esa llave sirve solo para instalar la app por tu cuenta: para publicarla en Google Play hay que generar una llave privada nueva.
+
+La voz usa el motor de texto a voz de Android. Si no se escucha, instalá los datos de voz en inglés en **Ajustes → Sistema → Idioma → Salida de texto a voz**.
+
+### Alternativa: versión web (sirve también para iPhone)
+
+1. En GitHub, **Settings → Pages → Source: GitHub Actions**.
+2. Pestaña **Actions → Publicar app en GitHub Pages → Run workflow**.
+3. Abrí `https://<tu-usuario>.github.io/<repositorio>/` en el teléfono y elegí **Agregar a la pantalla de inicio**. Si el repositorio es privado, GitHub Pages requiere un plan pago.
 
 ## Cómo se usa (10 minutos)
 
@@ -45,6 +48,7 @@ app/                  la app (se publica tal cual)
   js/app.js           pantallas, voz, sonidos y guardado local
   sw.js               modo sin conexión
   manifest.webmanifest, icons/
+android/              envoltorio Android (WebView + voz del sistema) que empaqueta app/
 tests/engine.test.js  tests del motor (node --test)
 tools/                generador de WORDS.md y de la versión de un solo archivo
 RESEARCH.md           de dónde salen las palabras y por qué funciona el método

@@ -1,0 +1,62 @@
+name: Compilar APK de Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests del motor
+        run: node --test tests/*.test.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Compilar APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+        run: gradle --no-daemon assembleRelease
+
+      - name: Renombrar APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk WordBeat-1.0.${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WordBeat-apk
+          path: WordBeat-*.apk
+
+      - name: Publicar Release con el APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Word Beat 1.0.${{ github.run_number }}
+          body: |
+            Instalador de Word Beat para Android.
+
+            1. Descargá `WordBeat-1.0.${{ github.run_number }}.apk` desde el teléfono.
+            2. Abrilo y aceptá «Instalar apps de origen desconocido» si Android lo pide.
+            3. Las versiones nuevas se instalan encima y conservan tu progreso.
+          files: WordBeat-*.apk

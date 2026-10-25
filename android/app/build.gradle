@@ -1,0 +1,58 @@
+plugins {
+    id "com.android.application"
+}
+
+// La app web (carpeta app/ del repo) se copia dentro del APK antes de compilar.
+def webSrc = file("../../app")
+def webOut = layout.buildDirectory.dir("generated/web").get().asFile
+
+tasks.register("copyWebApp", Copy) {
+    from(webSrc) {
+        exclude "sw.js", "manifest.webmanifest"
+    }
+    into(new File(webOut, "www"))
+}
+
+android {
+    namespace "com.wordbeat.app"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.wordbeat.app"
+        minSdk 24
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv("VERSION_CODE") ?: "1")
+        versionName System.getenv("VERSION_NAME") ?: "1.0.0"
+    }
+
+    // Llave fija para que cada APK nuevo se instale encima del anterior sin perder el progreso.
+    signingConfigs {
+        wordbeat {
+            storeFile file("../wordbeat.keystore")
+            storePassword "wordbeat"
+            keyAlias "wordbeat"
+            keyPassword "wordbeat"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.wordbeat
+        }
+        debug {
+            signingConfig signingConfigs.wordbeat
+        }
+    }
+
+    sourceSets {
+        main.assets.srcDirs += webOut
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.named("preBuild") { dependsOn("copyWebApp") }
