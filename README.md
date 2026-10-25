@@ -4,8 +4,12 @@ Juego para el teléfono que enseña las **200 palabras más usadas del inglés h
 
 - **Mnemotecnia:** cada palabra tiene un ancla en español. Por ejemplo: «KNOW se dice NOU: NO sé... ¡pero ahora sí lo KNOW!».
 - **Repaso espaciado:** cada palabra vuelve justo antes de que la olvides (1, 2, 4, 7, 15, 30 y 60 días).
-- **Tiempos verbales:** cada verbo se practica en presente, pasado, presente perfecto, presente continuo y futuro, con distintos sujetos.
-- **Juego:** puntos, combos, 5 vidas que se recargan, racha diaria con protectores, niveles, 16 logros y un cofre sorpresa al cumplir la meta del día.
+- **11 tiempos verbales** en afirmativa, negativa y pregunta, con traducción al castellano: presente, pasado, presente perfecto, presente continuo, futuro con *will*, pasado continuo, *going to*, condicional, pasado perfecto, futuro continuo y presente perfecto continuo.
+- **Armar oraciones:** ordenar fichas, traducir escribiendo la oración completa y un conjugador interactivo por verbo (elegís sujeto, tiempo y forma).
+- **Tres dificultades:** Básico, Intermedio y Avanzado. Cambian los tiempos, los tipos de ejercicio y cuántos puntos da cada acierto.
+- **Prueba de nivel y «Ya la sé»:** saltea las palabras que ya conocés. Hasta 20 palabras nuevas por día.
+- **Viborita de letras:** comé las letras en orden para formar la palabra. Las consignas rotan entre castellano → inglés, formas verbales y oraciones para completar.
+- **Juego:** puntos, combos, 5 vidas que se recargan, racha diaria con protectores, niveles, 21 logros y un cofre sorpresa al cumplir la meta del día.
 - **Registro:** minutos por día, aciertos por palabra y por tiempo verbal, caja de cada palabra y próximo repaso.
 - **Pensada para TDAH:** rondas de 2 minutos, una sola tarea por pantalla, feedback inmediato y nunca te bloquea (sin vidas pasás a práctica libre).
 - Pronuncia en voz alta, funciona sin internet y se instala como una app. Tu progreso queda guardado en el teléfono.
@@ -44,7 +48,9 @@ app/                  la app (se publica tal cual)
   index.html
   css/styles.css
   js/words.js         las 200 palabras: traducción, pronunciación, formas, mnemotecnia y ejemplos
-  js/engine.js        repaso espaciado, preguntas, puntos, vidas, racha y logros (sin DOM)
+  js/grammar.js       11 tiempos en inglés (afirmativa, negativa, pregunta) y su traducción al castellano
+  js/engine.js        repaso espaciado, preguntas por dificultad, puntos, vidas, racha y logros (sin DOM)
+  js/snake.js         juego de la viborita de letras
   js/app.js           pantallas, voz, sonidos y guardado local
   sw.js               modo sin conexión
   manifest.webmanifest, icons/

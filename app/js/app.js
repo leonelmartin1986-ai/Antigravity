@@ -9,7 +9,8 @@
 
   const TYPE_ES = { v: "verbo", aux: "verbo auxiliar", pron: "pronombre", n: "sustantivo", adj: "adjetivo", adv: "adverbio", prep: "preposición", conj: "conjunción", det: "determinante", num: "número" };
   const BOX_ES = ["Nueva", "Caja 1 · mañana", "Caja 2 · 2 días", "Caja 3 · 4 días", "Caja 4 · 1 semana", "Caja 5 · 15 días", "Caja 6 · 1 mes", "Caja 7 · dominada"];
-  const KIND_ES = { meaning: "¿Qué significa?", reverse: "¿Cómo se dice en inglés?", listen: "Escuchá y elegí", tense: "Completá con el tiempo verbal", formid: "¿Qué forma es?", cloze: "Completá la frase", spell: "Escribila en inglés" };
+  const KIND_ES = { meaning: "¿Qué significa?", reverse: "¿Cómo se dice en inglés?", listen: "Escuchá y elegí", tense: "Completá con el tiempo verbal", formid: "¿Qué forma es?", cloze: "Completá la frase", spell: "Escribila en inglés", phrase: "Elegí el verbo conjugado", order: "Armá la oración", translate: "Traducí la oración" };
+  const Gr = window.Grammar;
 
   const TIPS = [
     "Decí cada palabra en voz alta. Oírte a vos mismo agrega una segunda huella en la memoria.",
@@ -31,6 +32,8 @@
     { t: "Doble código: ver y oír", p: "Combinar texto, sonido e imagen mental da dos rutas para recuperar el recuerdo (teoría de la codificación dual de Paivio).", a: "La app pronuncia cada palabra y te muestra cómo suena escrita en español." },
     { t: "Sesiones cortas y metas visibles", p: "Con TDAH cuesta sostener tareas largas sin una señal de avance; el feedback inmediato y las recompensas cercanas ayudan a mantener la motivación (aversión a la demora, Sonuga-Barke).", a: "Rondas de 2 minutos, barra de progreso en cada pregunta, puntos al instante y un cofre sorpresa al cumplir los 10 minutos." },
     { t: "Sin castigos que bloqueen", p: "La frustración y la sensibilidad al rechazo hacen que muchas personas con TDAH abandonen un hábito ante un mal día.", a: "Las vidas nunca te dejan afuera: sin vidas entrás en práctica libre y recuperás una. Un error baja la palabra a la mitad, no a cero. La racha tiene protectores." },
+    { t: "Producir oraciones, no solo reconocer", p: "Armar y escribir la oración completa obliga a recuperar la palabra y la gramática a la vez (efecto de generación). Es más difícil que elegir una opción, por eso aparece en las dificultades Intermedio y Avanzado.", a: "Ejercicios de ordenar fichas y de traducir escribiendo, con los 11 tiempos en afirmativa, negativa y pregunta." },
+    { t: "Pausas activas con juego", p: "Un cambio de actividad corto y con movimiento ayuda a recuperar la atención sin dejar de practicar.", a: "La viborita repasa la ortografía de las palabras y sus tiempos verbales comiendo letras en orden." },
     { t: "Variedad para sostener la atención", p: "Alternar tipos de tarea (práctica intercalada) mejora la retención y reduce el aburrimiento.", a: "Siete tipos de pregunta: significado, al revés, escuchar, tiempos verbales, forma verbal, completar frases y escribir." }
   ];
 
@@ -190,6 +193,9 @@
         : "Próxima vida en " + Math.ceil(ms / 60000) + " min.";
     } else note.hidden = true;
 
+    $("v-diff").textContent = "Dificultad: " + E.LEVELS[S.settings.level || 1].name;
+    $("placement-banner").hidden = !!S.stats.placementDone || S.stats.introduced >= 30;
+
     const dayIdx = Math.floor(now / E.DAY);
     $("v-tip").textContent = TIPS[dayIdx % TIPS.length];
   }
@@ -197,11 +203,13 @@
   /* ---------- navegación ---------- */
   let current = "home";
   function go(view) {
+    if (current === "snake" && view !== "snake") snakePause();
     current = view;
     document.querySelectorAll(".view").forEach(v => { v.hidden = v.dataset.view !== view; });
     document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.go === view));
-    $("app").classList.toggle("playing", view === "play");
+    $("app").classList.toggle("playing", view === "play" || view === "placement");
     if (view === "home") renderHome();
+    if (view === "snake") snakeOpen();
     if (view === "words") renderWords();
     if (view === "stats") renderStats();
     if (view === "more") renderMore();
@@ -278,6 +286,21 @@
     } else if (st.kind === "cloze") {
       body += '<p class="q-sentence">' + blankify(st.sentence) + "</p>";
       if (st.translation) body += '<p class="hint" style="text-align:center">' + esc(st.translation) + "</p>";
+    } else if (st.kind === "phrase") {
+      body += tensePills(st);
+      body += '<p class="hint" style="text-align:center">' + esc(st.es) + "</p>";
+      body += '<p class="q-sentence">' + blankify(st.sentence) + "</p>";
+    } else if (st.kind === "order") {
+      body += tensePills(st);
+      body += '<p class="es-sentence">' + esc(st.es) + "</p>";
+      body += '<div class="build-line" id="build" aria-label="Tu oración"></div>';
+      body += '<div class="tiles" id="tiles">' + st.tiles.map((t, i) => '<button type="button" class="tile" data-i="' + i + '">' + esc(t) + "</button>").join("") + "</div>";
+      body += '<div class="order-row"><button type="button" class="btn btn-ghost" id="order-clear">Borrar</button><button type="button" class="btn btn-play" id="order-go">Comprobar</button></div>';
+    } else if (st.kind === "translate") {
+      body += tensePills(st);
+      body += '<p class="es-sentence">' + esc(st.es) + "</p>";
+      body += '<textarea class="translate-in" id="tr-in" rows="3" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Escribila en inglés" aria-label="Tu traducción en inglés"></textarea>';
+      body += '<div class="order-row"><button type="button" class="btn btn-ghost" id="tr-hint">Pista</button><button type="button" class="btn btn-play" id="tr-go">Comprobar</button></div>';
     } else if (st.kind === "spell") {
       body += '<p class="q-prompt es">' + esc(st.prompt) + "</p>";
       body += '<div class="spell"><input id="spell-in" type="text" inputmode="latin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(st.hint) + '" aria-label="Escribí la palabra en inglés">' +
@@ -291,6 +314,43 @@
 
     if (st.kind === "listen" || (st.kind === "meaning" && S.settings.tts)) setTimeout(() => speak(e.w), 150);
     document.querySelectorAll("#card .opt").forEach(b => b.addEventListener("click", () => answer(b.dataset.opt, b)));
+    if (st.kind === "order") {
+      const picked = [];
+      const build = $("build");
+      const draw = () => {
+        build.innerHTML = picked.map((i, k) => '<button type="button" class="tile" data-k="' + k + '">' + esc(st.tiles[i]) + "</button>").join("");
+        document.querySelectorAll("#tiles .tile").forEach(b => b.classList.toggle("used", picked.includes(Number(b.dataset.i))));
+      };
+      $("tiles").addEventListener("click", ev => {
+        const b = ev.target.closest(".tile");
+        if (!b || R.waiting || picked.includes(Number(b.dataset.i))) return;
+        picked.push(Number(b.dataset.i));
+        speak(st.tiles[Number(b.dataset.i)]);
+        draw();
+      });
+      build.addEventListener("click", ev => {
+        const b = ev.target.closest(".tile");
+        if (!b || R.waiting) return;
+        picked.splice(Number(b.dataset.k), 1);
+        draw();
+      });
+      $("order-clear").addEventListener("click", () => { if (!R.waiting) { picked.length = 0; draw(); } });
+      $("order-go").addEventListener("click", () => { if (picked.length) answer(picked.map(i => st.tiles[i]).join(" "), build); });
+    }
+    if (st.kind === "translate") {
+      const inp = $("tr-in");
+      setTimeout(() => inp.focus(), 50);
+      let shown = 0;
+      const words = st.full.split(" ");
+      $("tr-hint").addEventListener("click", () => {
+        shown = Math.min(words.length, shown + 2);
+        inp.placeholder = words.slice(0, shown).join(" ") + " …";
+        st.usedHint = true;
+      });
+      const submit = () => { if (inp.value.trim()) answer(inp.value, inp); };
+      $("tr-go").addEventListener("click", submit);
+      inp.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); submit(); } });
+    }
     if (st.kind === "spell") {
       const inp = $("spell-in");
       setTimeout(() => inp.focus(), 50);
@@ -306,21 +366,60 @@
     }
   }
 
+  function tensePills(st) {
+    return '<div class="q-tense"><span class="pill">' + esc(st.tenseEs) + '</span><span class="pill sun">' + esc(st.hint) + "</span></div>";
+  }
+
   function blankify(sentence) {
     return esc(sentence).replace("___", '<span class="blank">&nbsp;</span>');
   }
 
-  function renderIntro(e) {
+  // «Ya la sé»: una pregunta rápida; si la acertás, la palabra se saltea por 4 días.
+  function knownCheck(e) {
+    const q = E.buildKind("reverse", e, WORDS, rnd, 1);
+    let body = '<p class="q-type"><span>Comprobemos rápido</span><span>#' + e.rank + "</span></p>";
+    body += '<p class="q-prompt es">' + esc(q.prompt) + "</p>";
+    body += '<div class="options two">' + q.options.map((o, i) => '<button type="button" class="opt" data-opt="' + esc(o) + '"><span class="opt-key">' + (i + 1) + "</span>" + esc(o) + "</button>").join("") + "</div>";
+    cardEnter(body);
+    document.querySelectorAll("#card .opt").forEach(b => b.addEventListener("click", () => {
+      const ok = E.checkAnswer(q, b.dataset.opt);
+      document.querySelectorAll("#card .opt").forEach(x => { x.disabled = true; if (E.checkAnswer(q, x.dataset.opt)) x.classList.add("ok"); else if (x === b) x.classList.add("ko"); });
+      if (ok) {
+        sfx.ok();
+        E.markKnown(S, e.w, Date.now());
+        S.xp += 5; R.xp += 5;
+        R.results[R.i] = "intro";
+        R.steps = R.steps.filter((x, j) => j <= R.i || x.w !== e.w);
+        save();
+        toast("¡Bien! La salteamos. Vuelve en 4 días para confirmar.");
+        setTimeout(next, 700);
+      } else {
+        sfx.ko();
+        toast("Mejor aprendela con la tarjeta.");
+        setTimeout(() => renderIntro(e, true), 900);
+      }
+    }));
+  }
+
+  function renderIntro(e, noKnown) {
     let body = '<p class="q-type"><span>Palabra nueva</span><span>#' + e.rank + (e.so ? " · canciones" : "") + "</span></p>";
     body += '<p class="intro-word">' + esc(e.w) + "</p>";
     body += '<div class="intro-meta"><button type="button" class="speak" data-say="' + esc(e.w) + '">' + ICON_SPEAK + "Se dice «" + esc(e.pr) + "»</button><span class=\"pill\">" + esc(TYPE_ES[e.t]) + "</span></div>";
     body += '<p class="intro-es">' + esc(e.es) + "</p>";
     body += '<div class="memo"><b>Ancla para recordarla</b>' + esc(e.mn) + "</div>";
     body += formsHtml(e);
+    if (e.t === "v") {
+      body += '<div class="mini-conj">' + ["present", "past", "perfect"].map(t => {
+        const b = Gr.build(e, t, e.sj ? "it" : "I", "aff");
+        return '<p><button type="button" class="speak" data-say="' + esc(b.en) + '" style="padding:4px 10px">' + esc(b.en) + "</button><span>" + esc(b.es) + "</span></p>";
+      }).join("") + '<button type="button" class="link-btn" id="intro-conj">Ver los 11 tiempos, negativa y pregunta</button></div>';
+    }
     body += '<p class="example"><button type="button" class="speak" data-say="' + esc(e.ex) + '">' + ICON_SPEAK + esc(e.ex) + "</button><em>" + esc(e.xe) + "</em></p>";
-    body += '<button type="button" class="btn btn-play btn-wide" id="intro-ok">¡La tengo!</button>';
+    body += '<div class="order-row">' + (noKnown ? "<span></span>" : '<button type="button" class="btn btn-ghost" id="intro-known">Ya la sé</button>') + '<button type="button" class="btn btn-play" id="intro-ok">¡La tengo!</button></div>';
     cardEnter(body);
     if (S.settings.tts) setTimeout(() => speak(e.w), 200);
+    if ($("intro-conj")) $("intro-conj").addEventListener("click", () => openWord(e.w));
+    if ($("intro-known")) $("intro-known").addEventListener("click", () => knownCheck(e));
     $("intro-ok").addEventListener("click", () => {
       const xp = E.introduce(S, e.w, Date.now());
       R.xp += xp;
@@ -351,7 +450,8 @@
       if (E.checkAnswer(st, b.dataset.opt)) b.classList.add("ok");
       else if (b === el) b.classList.add("ko");
     });
-    if (st.kind === "spell") { el.classList.add(ok ? "ok" : "ko"); el.disabled = true; }
+    if (st.kind === "spell" || st.kind === "translate") { el.classList.add(ok ? "ok" : "ko"); el.disabled = true; }
+    if (st.kind === "order") el.classList.add(ok ? "ok" : "ko");
     if (res.lifeLost) popStat("stat-lives");
     if (xp) popStat("stat-xp");
     renderTop();
@@ -359,8 +459,12 @@
 
     // feedback: en errores se repasa el ancla (volver a codificar es lo que más sirve)
     const fb = $("feedback");
-    let html = '<p class="fb-title">' + (ok ? pickPraise() : "Casi. Era «" + esc(st.answer) + "»") + (xp ? ' <span class="fb-xp">+' + xp + " XP</span>" : "") + "</p>";
-    if (st.kind === "tense") {
+    const shown = st.kind === "order" || st.kind === "translate" ? st.full : st.answer;
+    let html = '<p class="fb-title">' + (ok ? pickPraise() : "Casi. Era «" + esc(shown) + "»") + (xp ? ' <span class="fb-xp">+' + xp + " XP</span>" : "") + "</p>";
+    if (st.kind === "phrase" || st.kind === "order" || st.kind === "translate") {
+      html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(st.full) + '">' + ICON_SPEAK + esc(st.full) + "</button></p>";
+      html += '<p class="fb-es">' + esc(st.es) + " · " + esc(st.tenseEs) + "</p>";
+    } else if (st.kind === "tense") {
       html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(st.full) + '">' + ICON_SPEAK + esc(st.full) + "</button></p>";
       html += '<p class="fb-body">' + esc(st.tenseEs) + " de <strong>" + esc(e.w) + "</strong>: " + esc(E.forms(e).join(" · ")) + "</p>";
     } else if (st.kind === "cloze") {
@@ -374,12 +478,12 @@
     fb.className = "feedback " + (ok ? "ok" : "ko");
     fb.innerHTML = html;
     fb.hidden = false;
-    if (S.settings.tts && st.kind === "tense") speak(st.full);
+    if (S.settings.tts && ["tense", "phrase", "order", "translate"].includes(st.kind)) speak(st.full);
     else if (S.settings.tts && !ok) speak(e.w);
     $("fb-next").addEventListener("click", next);
     if (!ok) fb.scrollIntoView({ behavior: "smooth", block: "nearest" });
     save();
-    if (ok) R.autoNext = setTimeout(next, st.kind === "tense" ? 1900 : 1100);
+    if (ok) R.autoNext = setTimeout(next, ["order", "translate", "phrase"].includes(st.kind) ? 2600 : st.kind === "tense" ? 1900 : 1100);
   }
 
   const PRAISE = ["¡Bien!", "¡Exacto!", "¡Eso es!", "¡Genial!", "¡Perfecto!", "¡Muy bien!"];
@@ -460,7 +564,7 @@
 
   // Atajos de teclado: 1-4 para elegir, Enter para seguir.
   document.addEventListener("keydown", ev => {
-    if (current !== "play" || ev.target.tagName === "INPUT") return;
+    if (current !== "play" || ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA") return;
     const n = Number(ev.key);
     const opts = document.querySelectorAll("#card .opt");
     if (n >= 1 && n <= opts.length && !R.waiting) opts[n - 1].click();
@@ -470,12 +574,13 @@
   /* ---------- tiempo activo ---------- */
   ["pointerdown", "keydown", "touchstart"].forEach(t => document.addEventListener(t, () => { lastActivity = Date.now(); }, { passive: true }));
   setInterval(() => {
-    if (current !== "play" || document.hidden) return;
+    const active = current === "play" || current === "placement" || (current === "snake" && SN && SN.state.running);
+    if (!active || document.hidden) return;
     if (Date.now() - lastActivity > 60000) return; // pausa si te distraés más de un minuto
     E.addTime(S, Date.now(), 1000);
     if (Date.now() % 5000 < 1000) save();
   }, 1000);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) save(); else if (current === "home") renderHome(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { save(); snakePause(); } else if (current === "home") renderHome(); });
 
   /* ---------- palabras ---------- */
   let filter = "all";
@@ -523,11 +628,12 @@
     html += '<div class="memo"><b>Ancla para recordarla</b>' + esc(e.mn) + "</div>";
     html += formsHtml(e);
     if (e.t === "v") {
-      html += '<h3 class="sub">En cada tiempo verbal</h3><div class="table-wrap"><table><thead><tr><th>Tiempo</th><th>Ejemplo</th></tr></thead><tbody>' +
-        E.conjugationTable(e).map(r => {
-          const f = (ws && ws.forms[r.tense.id]) || null;
-          return "<tr><td><strong>" + esc(r.tense.es) + "</strong><br><small class=\"hint\">" + esc(r.tense.hint) + (f ? " · " + f.ok + "✓ " + f.ko + "✗" : "") + '</small></td><td><button type="button" class="speak" data-say="' + esc(r.first) + '" style="text-align:left">' + esc(r.first) + "</button><br><small class=\"hint\">" + esc(r.third) + "</small></td></tr>";
-        }).join("") + "</tbody></table></div>";
+      // Conjugador: elegís sujeto y forma, y se ven los 11 tiempos en inglés y castellano.
+      const subs = Gr.subjectsFor(e);
+      html += '<h3 class="sub">Conjugador</h3><div class="conj-controls">' +
+        '<div class="seg-ctl" id="cj-subj">' + subs.map((x, i) => '<button type="button" class="chip' + (i === 0 ? " on" : "") + '" data-v="' + x.id + '">' + esc(x.en === "i" ? "I" : x.en) + "</button>").join("") + "</div>" +
+        '<div class="seg-ctl" id="cj-pol">' + Gr.POLARITIES.map((x, i) => '<button type="button" class="chip' + (i === 0 ? " on" : "") + '" data-v="' + x.id + '">' + esc(x.es) + "</button>").join("") + "</div></div>" +
+        '<div class="conj-list" id="cj-list"></div>';
     } else if (e.cl) {
       html += '<h3 class="sub">En contexto</h3><div class="table-wrap"><table><tbody>' +
         e.cl.map(l => { const [s, a] = l.split("|"); const full = s.replace("___", a); return '<tr><td><button type="button" class="speak" data-say="' + esc(full) + '" style="text-align:left">' + esc(full) + "</button></td></tr>"; }).join("") + "</tbody></table></div>";
@@ -545,6 +651,27 @@
     sh.hidden = false;
     $("sheet-back").hidden = false;
     $("sheet-close").addEventListener("click", closeSheet);
+    if (e.t === "v") {
+      const cj = { subj: Gr.subjectsFor(e)[0].id, pol: "aff" };
+      const LV = ["", "Básico", "Intermedio", "Avanzado"];
+      const draw = () => {
+        $("cj-list").innerHTML = Gr.tensesFor(e, 3).map(t => {
+          const b = Gr.build(e, t.id, cj.subj, cj.pol);
+          const f = (ws && ws.forms[t.id]) || null;
+          return '<div class="conj-item"><header><strong>' + esc(t.es) + '</strong><span class="lvl">' + LV[t.lvl] + (f ? " · " + f.ok + "✓ " + f.ko + "✗" : "") + "</span></header>" +
+            '<button type="button" class="speak" data-say="' + esc(b.en) + '">' + ICON_SPEAK + esc(b.en) + "</button>" +
+            '<p class="es-line">' + esc(b.es) + "</p></div>";
+        }).join("") + (e.s ? '<p class="hint">«' + esc(e.w) + '» es un verbo de estado: casi no se usa en los tiempos continuos (-ing).</p>' : "");
+      };
+      [["cj-subj", "subj"], ["cj-pol", "pol"]].forEach(([id, k]) => $(id).addEventListener("click", ev => {
+        const b = ev.target.closest(".chip");
+        if (!b) return;
+        cj[k] = b.dataset.v;
+        $(id).querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === b));
+        draw();
+      }));
+      draw();
+    }
     if (S.settings.tts) speak(e.w);
   }
   function closeSheet() { $("sheet").hidden = true; $("sheet-back").hidden = true; }
@@ -563,7 +690,9 @@
       mini(S.stats.introduced + "/200", "palabras vistas"),
       mini(E.countLearned(S), "aprendidas (caja 4+)"),
       mini(S.streak.best + (S.streak.best === 1 ? " día" : " días"), "mejor racha"),
-      mini(activeDays, "días jugados")
+      mini(activeDays, "días jugados"),
+      mini(S.stats.orderOk + S.stats.translateOk, "oraciones armadas"),
+      mini(S.stats.snakeBest + " pts", "récord en la viborita")
     ].join("");
 
     // gráfico de barras: minutos de los últimos 14 días
@@ -609,6 +738,8 @@
   /* ---------- ajustes ---------- */
   function renderMore() {
     $("set-new").value = String(S.settings.newPerDay);
+    $("set-level").value = String(S.settings.level || 1);
+    $("set-level-desc").textContent = E.LEVELS[S.settings.level || 1].desc;
     $("set-goal").value = String(S.settings.goalMin);
     $("set-rate").value = String(S.settings.rate);
     $("set-tts").checked = !!S.settings.tts;
@@ -616,9 +747,142 @@
     $("set-calm").checked = !!S.settings.calm;
     $("science").innerHTML = SCIENCE.map(x => '<article class="sci"><h4>' + esc(x.t) + "</h4><p>" + esc(x.p) + '</p><p class="app-use">En la app: ' + esc(x.a) + "</p></article>").join("");
   }
-  [["set-new", "newPerDay", Number], ["set-goal", "goalMin", Number], ["set-rate", "rate", Number]].forEach(([id, k, fn]) => {
-    $(id).addEventListener("change", ev => { S.settings[k] = fn(ev.target.value); save(); toast("Guardado"); });
+  [["set-new", "newPerDay", Number], ["set-goal", "goalMin", Number], ["set-rate", "rate", Number], ["set-level", "level", Number]].forEach(([id, k, fn]) => {
+    $(id).addEventListener("change", ev => {
+      S.settings[k] = fn(ev.target.value);
+      save();
+      if (k === "level") $("set-level-desc").textContent = E.LEVELS[S.settings.level].desc;
+      toast(k === "level" ? "Dificultad: " + E.LEVELS[S.settings.level].name : "Guardado");
+    });
   });
+  $("btn-diff").addEventListener("click", () => { go("more"); setTimeout(() => { $("set-level").focus(); $("set-level").scrollIntoView({ block: "center" }); }, 50); });
+
+  /* ---------- prueba de nivel ---------- */
+  let P = null;
+  function startPlacement() {
+    P = { qs: E.placementQuiz(WORDS, rnd), i: 0, results: [] };
+    go("placement");
+    renderPlacement();
+  }
+  function renderPlacement() {
+    $("pl-segments").innerHTML = P.qs.map((q, i) => '<span class="seg ' + (P.results[i] ? (P.results[i].ok ? "ok" : "ko") : i === P.i ? "now" : "") + '"></span>').join("");
+    const card = $("pl-card");
+    if (P.i >= P.qs.length) return finishPlacement();
+    const q = P.qs[P.i];
+    card.innerHTML = '<p class="q-type"><span>Prueba de nivel · ' + (P.i + 1) + " de " + P.qs.length + '</span><span>#' + BY_WORD[q.w].rank + "</span></p>" +
+      '<p class="q-prompt">' + esc(q.prompt) + "</p>" +
+      '<div class="options">' + q.options.map((o, i) => '<button type="button" class="opt" data-opt="' + esc(o) + '"><span class="opt-key">' + (i + 1) + "</span>" + esc(o) + "</button>").join("") +
+      '<button type="button" class="opt" data-opt=""><span class="opt-key">?</span>No la sé</button></div>';
+    card.querySelectorAll(".opt").forEach(b => b.addEventListener("click", () => {
+      P.results[P.i] = { band: q.band, ok: !!b.dataset.opt && E.checkAnswer(q, b.dataset.opt) };
+      P.i++;
+      renderPlacement();
+    }));
+  }
+  function finishPlacement() {
+    const res = E.applyPlacement(S, WORDS, P.results, Date.now(), rnd);
+    save();
+    const lvName = E.LEVELS[res.suggested].name;
+    $("pl-card").innerHTML = '<p class="eyebrow">Resultado</p><h2 class="sum-title">' + (res.marked ? "Ya sabés " + res.marked + " palabras" : "Empezás desde el principio") + "</h2>" +
+      '<div class="boxes">' + res.perBand.map((n, b) => '<div class="box-row' + (n >= 4 ? " learned" : "") + '"><span>Palabras ' + (b * 50 + 1) + "–" + (b * 50 + 50) + '</span><div class="box-track"><div class="box-fill" style="width:' + n * 20 + '%"></div></div><span style="text-align:right">' + n + "/5</span></div>").join("") + "</div>" +
+      '<p class="hint">' + (res.marked ? "Esas palabras se saltean: vuelven en los próximos días para confirmarlas. " : "") + "Dificultad sugerida: <strong>" + lvName + "</strong>.</p>" +
+      '<div class="sum-actions"><button type="button" class="btn btn-play" id="pl-use">Usar dificultad ' + lvName + '</button><button type="button" class="btn btn-ghost" id="pl-keep">Mantener la actual</button></div>';
+    $("pl-use").addEventListener("click", () => { S.settings.level = res.suggested; save(); go("home"); });
+    $("pl-keep").addEventListener("click", () => go("home"));
+    E.newBadges(S);
+    P = null;
+  }
+  $("btn-placement").addEventListener("click", startPlacement);
+  $("btn-placement-home").addEventListener("click", startPlacement);
+  $("pl-quit").addEventListener("click", () => { P = null; go("home"); });
+
+  /* ---------- viborita ---------- */
+  let SN = null, snKind = 0;
+  const SN_KINDS = ["Castellano → inglés", "Forma verbal", "Completá la oración"];
+  const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-heart" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.5 1.1 5.3 3 1.8-1.9 3.2-3 5.3-3 3.7 0 5.8 3.8 4.3 7.2C19.5 16.4 12 21 12 21Z"/></svg>';
+
+  function snakePool() {
+    const seen = WORDS.filter(e => S.words[e.w] && S.words[e.w].intro);
+    return (seen.length >= 8 ? seen : WORDS.slice(0, 40)).filter(e => /^[a-z]{2,10}$/i.test(e.w));
+  }
+  const clean = w => String(w).toLowerCase().replace(/[^a-z]/g, "");
+
+  // Las consignas rotan: castellano → inglés, forma verbal y oración para completar.
+  function snakePrompt() {
+    const pool = snakePool();
+    const verbs = pool.filter(e => e.t === "v");
+    const kind = snKind % 3;
+    snKind++;
+    if ((kind === 1 || kind === 2) && verbs.length) {
+      const e = E.pick(verbs, rnd);
+      if (kind === 1) {
+        const fs = E.forms(e), lbs = E.formLabels(e);
+        const i = 1 + Math.floor(rnd() * 4);
+        return { kind: SN_KINDS[1], q: e.w + " → " + lbs[i], sub: e.es, answer: clean(fs[i]), w: e.w, say: fs[i] };
+      }
+      const t = E.pick(Gr.tensesFor(e, Math.min(2, S.settings.level || 1)).filter(x => ["present", "past", "perfect", "continuous", "pastcont"].includes(x.id)), rnd);
+      const b = Gr.build(e, t.id, E.pick(Gr.subjectsFor(e), rnd), "aff");
+      const parts = b.verb.split(" ");
+      const before = parts.slice(0, -1).join(" ");
+      return { kind: SN_KINDS[2] + " · " + t.es, q: b.pre + " " + (before ? before + " " : "") + "___" + b.post, sub: b.es + " (" + e.w + ")", answer: clean(b.main), w: e.w, say: b.en };
+    }
+    const e = E.pick(pool, rnd);
+    return { kind: SN_KINDS[0], q: e.es.split(" / ")[0], sub: TYPE_ES[e.t], answer: clean(e.w), w: e.w, say: e.w };
+  }
+
+  function snakeHud(st) {
+    $("sn-score").textContent = st.score;
+    $("sn-lives").innerHTML = [0, 1, 2].map(i => '<span class="' + (i < st.lives ? "" : "off") + '">' + HEART + "</span>").join("");
+    const t = st.target;
+    $("sn-kind").textContent = t.kind;
+    $("sn-q").textContent = t.q;
+    $("sn-sub").textContent = t.sub || "";
+    $("sn-progress").textContent = t.answer.split("").map((c, i) => (i < st.idx ? c.toUpperCase() : "_")).join(" ");
+  }
+
+  function snakeOpen() {
+    if (SN && SN.state.over) { $("sn-over").hidden = true; ["sn-board", "sn-prompt", "sn-help"].forEach(id => { $(id).hidden = false; }); SN.restart(); }
+    if (!SN) {
+      SN = Snake.createGame($("sn-board"), {
+        rnd,
+        isActive: () => current === "snake",
+        nextPrompt: snakePrompt,
+        onProgress: snakeHud,
+        onLetter: (st, ch) => { tone([520 + st.idx * 40], 0.07); snakeHud(st); lastActivity = Date.now(); },
+        onWord: (st, t) => { sfx.ok(); speak(t.say); toast("¡" + t.answer.toUpperCase() + "!"); },
+        onHurt: st => { sfx.ko(); snakeHud(st); },
+        onEnd: snakeEnd
+      });
+    } else { SN.resize(); }
+    snakeHud(SN.state);
+  }
+  function snakePause() { if (SN && SN.state.running) SN.pause(); }
+  function snakeEnd(st) {
+    const done = st.words.map(t => t.w);
+    const xp = E.applySnake(S, Date.now(), st.score, done);
+    const best = S.stats.snakeBest === st.score && st.score > 0;
+    const badges = E.newBadges(S);
+    save();
+    renderTop();
+    const o = $("sn-over");
+    o.innerHTML = '<p class="eyebrow">Fin de la partida</p><h2 class="sum-title">' + (best ? "¡Nuevo récord!" : st.score + " puntos") + "</h2>" +
+      '<div class="sum-grid">' + mini(st.score, "puntos") + mini(st.words.length, "palabras") + mini("+" + xp, "XP") + "</div>" +
+      (st.words.length ? '<p class="hint">' + st.words.map(t => esc(t.answer)).join(" · ") + "</p>" : "") +
+      badges.map(b => '<div class="chest"><strong>Nuevo logro: ' + esc(b.name) + "</strong><span>" + esc(b.desc) + "</span></div>").join("") +
+      '<div class="sum-actions"><button type="button" class="btn btn-play" id="sn-again">Jugar otra</button><button type="button" class="btn btn-ghost" id="sn-home">Volver al inicio</button></div>';
+    o.hidden = false;
+    ["sn-board", "sn-prompt", "sn-help"].forEach(id => { $(id).hidden = true; });
+    if (best || badges.length) burst();
+    $("sn-again").addEventListener("click", () => {
+      o.hidden = true;
+      ["sn-board", "sn-prompt", "sn-help"].forEach(id => { $(id).hidden = false; });
+      SN.restart(); SN.resize(); snakeHud(SN.state);
+    });
+    $("sn-home").addEventListener("click", () => go("home"));
+  }
+  $("sn-pause").addEventListener("click", () => { if (!SN) return; if (SN.state.running) SN.pause(); else SN.start(); });
+  $("btn-snake-home").addEventListener("click", () => go("snake"));
+  window.addEventListener("resize", () => { if (SN && current === "snake") SN.resize(); });
   [["set-tts", "tts"], ["set-sound", "sound"], ["set-calm", "calm"]].forEach(([id, k]) => {
     $(id).addEventListener("change", ev => { S.settings[k] = ev.target.checked; save(); applyCalm(); toast("Guardado"); });
   });

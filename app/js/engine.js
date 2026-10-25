@@ -3,6 +3,7 @@
  * puntos, vidas, racha y logros. No toca el DOM, así se puede testear con Node.
  */
 (function (root) {
+  const G = typeof module !== "undefined" && module.exports ? require("./grammar.js") : root.Grammar;
   const DAY = 86400000;
   // Días hasta el próximo repaso según la caja (0 = nueva). Intervalos expansivos.
   const INTERVALS = [0, 1, 2, 4, 7, 15, 30, 60];
@@ -21,16 +22,15 @@
     det: ["singular", "plural"]
   };
 
-  const TENSES = [
-    { id: "present", es: "Presente simple", hint: "rutina, todos los días" },
-    { id: "past", es: "Pasado simple", hint: "ayer, terminado" },
-    { id: "perfect", es: "Presente perfecto", hint: "alguna vez, hasta hoy" },
-    { id: "continuous", es: "Presente continuo", hint: "ahora mismo" },
-    { id: "future", es: "Futuro", hint: "mañana" }
-  ];
+  const TENSES = G.TENSES;
 
-  const SUBJECTS = ["I", "You", "He", "She", "We", "They"];
-  const THIRD = { he: 1, she: 1, it: 1 };
+  // Dificultad: 1 básico, 2 intermedio, 3 avanzado.
+  const LEVELS = [
+    null,
+    { id: 1, name: "Básico", desc: "5 tiempos verbales en afirmativa. Opciones múltiples.", fresh: 2, xp: 1 },
+    { id: 2, name: "Intermedio", desc: "7 tiempos, negativas y preguntas. Armar oraciones.", fresh: 3, xp: 1.5 },
+    { id: 3, name: "Avanzado", desc: "Los 11 tiempos. Escribir y traducir oraciones completas.", fresh: 4, xp: 2 }
+  ];
 
   const BADGES = [
     { id: "first", name: "Primera palabra", desc: "Aprendiste tu primera palabra nueva.", test: s => s.stats.introduced >= 1 },
@@ -48,7 +48,12 @@
     { id: "tenses50", name: "Maestro de tiempos", desc: "50 tiempos verbales correctos.", test: s => s.stats.tenseOk >= 50 },
     { id: "speller", name: "Buena ortografía", desc: "25 palabras escritas sin error.", test: s => s.stats.spellOk >= 25 },
     { id: "goal10", name: "Diez metas", desc: "Cumpliste la meta diaria 10 veces.", test: s => s.stats.goalsMet >= 10 },
-    { id: "level10", name: "Nivel 10", desc: "Llegaste al nivel 10.", test: s => levelFor(s.xp).level >= 10 }
+    { id: "level10", name: "Nivel 10", desc: "Llegaste al nivel 10.", test: s => levelFor(s.xp).level >= 10 },
+    { id: "builder", name: "Constructor", desc: "25 oraciones bien armadas.", test: s => s.stats.orderOk >= 25 },
+    { id: "translator", name: "Traductor", desc: "25 oraciones traducidas escribiendo.", test: s => s.stats.translateOk >= 25 },
+    { id: "snake", name: "Viborita", desc: "10 palabras completas en la viborita.", test: s => s.stats.snakeWords >= 10 },
+    { id: "snake100", name: "Serpiente sabia", desc: "100 puntos en una partida de viborita.", test: s => s.stats.snakeBest >= 100 },
+    { id: "advanced", name: "Modo avanzado", desc: "Una ronda completa en dificultad Avanzado.", test: s => s.stats.advancedRounds >= 1 }
   ];
 
   const LEVEL_TITLES = ["Oyente", "Principiante", "Aprendiz", "Conversador", "Cantante de ducha", "Fluido", "Letrista", "Estrella", "Leyenda"];
@@ -110,8 +115,9 @@
       streak: { current: 0, best: 0, last: null, freezes: 0 },
       days: {},
       badges: {},
-      stats: { introduced: 0, answers: 0, correct: 0, bestCombo: 0, perfectRounds: 0, tenseOk: 0, spellOk: 0, goalsMet: 0 },
-      settings: { newPerDay: 5, goalMin: 10, rate: 0.85, sound: true, calm: false, tts: true }
+      stats: { introduced: 0, answers: 0, correct: 0, bestCombo: 0, perfectRounds: 0, tenseOk: 0, spellOk: 0, goalsMet: 0,
+        orderOk: 0, translateOk: 0, snakeWords: 0, snakeBest: 0, snakeGames: 0, advancedRounds: 0, known: 0, placementDone: 0 },
+      settings: { newPerDay: 5, goalMin: 10, rate: 0.85, sound: true, calm: false, tts: true, level: 1 }
     };
   }
 
@@ -169,9 +175,9 @@
   /* ---------- nivel ---------- */
 
   function levelFor(xp) {
-    // Cada nivel pide 60 XP más que el anterior: 60, 120, 180...
-    let level = 1, need = 60, acc = 0;
-    while (xp >= acc + need) { acc += need; level++; need = 60 * level; }
+    // Cada nivel pide 25 XP más que el anterior: 50, 75, 100...
+    let level = 1, need = 50, acc = 0;
+    while (xp >= acc + need) { acc += need; level++; need = 50 + 25 * (level - 1); }
     return {
       level,
       into: xp - acc,
@@ -234,8 +240,9 @@
     const size = opts.size || ROUND_SIZE;
     const steps = [];
     const due = dueWords(s, words, now);
-    const fresh = opts.reviewOnly ? [] : newWordsAvailable(s, words, now).slice(0, 2);
-    const reviewSlots = Math.max(0, size - fresh.length * 2);
+    const lv = LEVELS[s.settings.level] || LEVELS[1];
+    const fresh = opts.reviewOnly ? [] : newWordsAvailable(s, words, now).slice(0, lv.fresh);
+    const reviewSlots = Math.max(2, size - fresh.length * 2);
     const reviews = due.slice(0, reviewSlots);
 
     // Completar la ronda con práctica extra de las palabras más débiles que todavía no vencen.
@@ -278,56 +285,99 @@
     return { options: opts, answer: key(entry) };
   }
 
-  function subjectFor(entry, rnd) {
-    if (entry.sj) return entry.sj.charAt(0).toUpperCase() + entry.sj.slice(1);
-    return pick(SUBJECTS, rnd);
+  function level(s) { return (s && s.settings && s.settings.level) || 1; }
+
+  function availableTenses(entry, lvl) { return G.tensesFor(entry, lvl || 1); }
+
+  function pickSubject(entry, rnd) { return pick(G.subjectsFor(entry), rnd); }
+
+  // Polaridad según dificultad: básico solo afirmativa; intermedio y avanzado mezclan.
+  function pickPol(lvl, rnd, allowQ) {
+    if (lvl <= 1) return "aff";
+    const r = rnd();
+    if (r < 0.5) return "aff";
+    if (r < 0.8 || !allowQ) return "neg";
+    return "q";
   }
 
-  function conj(entry, tenseId, subject) {
-    const [base, s3, past, pp, ing] = forms(entry);
-    const third = !!THIRD[subject.toLowerCase()];
-    const S = subject;
-    const c = entry.c ? " " + entry.c : "";
-    const stative = !!entry.s;
-    const be = subject === "I" ? "am" : third ? "is" : "are";
-    const have = third ? "has" : "have";
-    switch (tenseId) {
-      case "present": return { pre: S + " ", answer: third ? s3 : base, post: c + (stative ? "." : " every day.") };
-      case "past": return { pre: (stative ? "Last year " : "Yesterday ") + lowerSubj(S) + " ", answer: past, post: c + "." };
-      case "perfect": return { pre: S + " " + have + " ", answer: pp, post: c + (stative ? " for a long time." : " before.") };
-      case "continuous": return { pre: S + " " + be + " ", answer: ing, post: c + " right now." };
-      case "future": return { pre: "Tomorrow " + lowerSubj(S) + " will ", answer: base, post: c + "." };
-    }
-    return null;
-  }
-
-  function lowerSubj(S) { return S === "I" ? "I" : S.toLowerCase(); }
-
-  function availableTenses(entry) {
-    return TENSES.filter(t => !(entry.s && t.id === "continuous"));
-  }
-
-  // Todas las frases por tiempo verbal, para la ficha de la palabra.
-  function conjugationTable(entry) {
-    const subj = entry.sj ? subjectFor(entry) : "I";
-    const subj3 = entry.sj ? subj : "She";
-    return availableTenses(entry).map(t => {
-      const a = conj(entry, t.id, subj);
-      const b = conj(entry, t.id, subj3);
-      return { tense: t, first: a.pre + a.answer + a.post, third: b.pre + b.answer + b.post };
+  // Tabla completa para la ficha: cada tiempo con un sujeto y forma dados.
+  function conjugationTable(entry, subj, pol, lvl) {
+    const sj = entry.sj ? "it" : (subj || "I");
+    return availableTenses(entry, lvl || 3).map(t => {
+      const b = G.build(entry, t.id, sj, pol || "aff");
+      return { tense: t, en: b.en, es: b.es, first: b.en, third: G.build(entry, t.id, entry.sj ? "it" : "she", pol || "aff").en };
     });
   }
 
-  function tenseQuestion(entry, rnd) {
-    const t = pick(availableTenses(entry), rnd);
-    const subject = subjectFor(entry, rnd);
-    const q = conj(entry, t.id, subject);
+  // Completar el verbo principal (una sola palabra) en afirmativa.
+  function tenseQuestion(entry, rnd, lvl) {
+    const t = pick(availableTenses(entry, Math.min(lvl, 2)), rnd);
+    const b = G.build(entry, t.id, pickSubject(entry, rnd), "aff");
+    const parts = b.verb.split(" ");
+    const before = parts.slice(0, -1).join(" ");
+    const sentence = b.pre + " " + (before ? before + " " : "") + "___" + b.post;
     const opts = shuffle(Array.from(new Set(forms(entry))), rnd);
     return {
       kind: "tense", w: entry.w, tense: t.id, tenseEs: t.es, hint: t.hint,
-      sentence: q.pre + "___" + q.post, verb: entry.w,
-      options: opts, answer: q.answer, full: q.pre + q.answer + q.post
+      sentence, verb: entry.w, options: opts, answer: b.main, full: b.en, es: b.es
     };
+  }
+
+  // Elegir la frase verbal completa (aux + verbo), incluida la negativa.
+  function phraseQuestion(entry, rnd, lvl) {
+    const ts = availableTenses(entry, lvl);
+    const t = pick(ts, rnd);
+    const subj = pickSubject(entry, rnd);
+    const pol = pickPol(lvl, rnd, false);
+    const b = G.build(entry, t.id, subj, pol);
+    const pool = new Set([b.verb]);
+    shuffle(ts, rnd).forEach(o => {
+      ["aff", "neg"].forEach(pp => {
+        if (pool.size < 4) pool.add(G.build(entry, o.id, subj, pp).verb);
+      });
+    });
+    return {
+      kind: "phrase", w: entry.w, tense: t.id, tenseEs: t.es + (pol === "neg" ? " · negativa" : ""), hint: t.hint,
+      sentence: b.pre + " ___" + b.post, es: b.es, options: shuffle(Array.from(pool), rnd), answer: b.verb, full: b.en
+    };
+  }
+
+  // Ordenar las fichas de la oración en inglés.
+  function orderQuestion(entry, rnd, lvl) {
+    const t = pick(availableTenses(entry, lvl), rnd);
+    const subj = pickSubject(entry, rnd);
+    const pol = pickPol(lvl, rnd, true);
+    const b = G.build(entry, t.id, subj, pol);
+    const tiles = b.words.slice();
+    // En avanzado se suman 2 fichas trampa con otras formas del verbo.
+    if (lvl >= 3) {
+      const extra = forms(entry).filter(f => !tiles.includes(f));
+      shuffle(extra, rnd).slice(0, 2).forEach(f => tiles.push(f));
+    }
+    return {
+      kind: "order", w: entry.w, tense: t.id, tenseEs: t.es + " · " + G.POLARITIES.find(x => x.id === pol).es.toLowerCase(),
+      hint: t.hint, es: b.es, tiles: shuffle(tiles, rnd), answer: b.words.join(" "), full: b.en
+    };
+  }
+
+  // Escribir la oración completa en inglés.
+  function translateQuestion(entry, rnd, lvl) {
+    const t = pick(availableTenses(entry, lvl), rnd);
+    const subj = pickSubject(entry, rnd);
+    const pol = pickPol(lvl, rnd, true);
+    const b = G.build(entry, t.id, subj, pol);
+    return {
+      kind: "translate", w: entry.w, tense: t.id, tenseEs: t.es, hint: t.hint, pol,
+      es: b.es, answer: b.en, full: b.en, target: b
+    };
+  }
+
+  // Compatibilidad: frase en un tiempo dado (usado en tests y en la ficha).
+  function conj(entry, tenseId, subject) {
+    const b = G.build(entry, tenseId, String(subject).toLowerCase() === "i" ? "I" : String(subject).toLowerCase(), "aff");
+    const parts = b.verb.split(" ");
+    const before = parts.slice(0, -1).join(" ");
+    return { pre: b.pre + " " + (before ? before + " " : ""), answer: b.main, post: b.post };
   }
 
   function formIdQuestion(entry, rnd) {
@@ -378,25 +428,39 @@
    */
   function makeQuestion(s, entry, words, rnd, box) {
     const isVerb = entry.t === "v";
+    const lvl = level(s);
     let kinds;
-    // Los verbos pasan rápido a practicar tiempos verbales: es el foco del juego.
     if (box === 0) kinds = ["meaning", "listen", "meaning"];
-    else if (box === 1) kinds = isVerb ? ["tense", "tense", "meaning", "listen"] : ["meaning", "listen", "reverse"];
-    else if (box <= 3) kinds = isVerb ? ["tense", "tense", "tense", "reverse", "cloze", "formid"] : ["reverse", "cloze", "listen", "formid"];
-    else kinds = isVerb ? ["tense", "tense", "spell", "formid"] : ["spell", "cloze", "reverse"];
+    else if (lvl === 1) {
+      if (box === 1) kinds = isVerb ? ["tense", "tense", "meaning", "listen"] : ["meaning", "listen", "reverse"];
+      else if (box <= 3) kinds = isVerb ? ["tense", "tense", "tense", "reverse", "cloze", "formid"] : ["reverse", "cloze", "listen", "formid"];
+      else kinds = isVerb ? ["tense", "tense", "spell", "formid", "order"] : ["spell", "cloze", "reverse"];
+    } else if (lvl === 2) {
+      if (box === 1) kinds = isVerb ? ["tense", "phrase", "order", "reverse"] : ["reverse", "cloze", "listen"];
+      else if (box <= 3) kinds = isVerb ? ["phrase", "order", "order", "tense", "formid"] : ["spell", "cloze", "reverse", "formid"];
+      else kinds = isVerb ? ["order", "phrase", "spell", "translate"] : ["spell", "cloze", "spell"];
+    } else {
+      if (box === 1) kinds = isVerb ? ["phrase", "order", "order", "spell"] : ["reverse", "spell", "cloze"];
+      else if (box <= 3) kinds = isVerb ? ["order", "translate", "phrase", "spell"] : ["spell", "cloze", "spell", "formid"];
+      else kinds = isVerb ? ["translate", "translate", "order", "phrase"] : ["spell", "spell", "cloze"];
+    }
     for (const k of shuffle(kinds, rnd).concat(["meaning"])) {
-      const q = buildKind(k, entry, words, rnd);
+      const q = buildKind(k, entry, words, rnd, lvl);
       if (q) return q;
     }
     return null;
   }
 
-  function buildKind(kind, entry, words, rnd) {
+  function buildKind(kind, entry, words, rnd, lvl) {
+    lvl = lvl || 1;
     switch (kind) {
       case "meaning": return Object.assign({ kind, w: entry.w, prompt: entry.w }, mc(entry, words, rnd, e => e.es));
       case "reverse": return Object.assign({ kind, w: entry.w, prompt: entry.es }, mc(entry, words, rnd, e => e.w));
       case "listen": return Object.assign({ kind, w: entry.w, say: entry.w }, mc(entry, words, rnd, e => e.es));
-      case "tense": return entry.t === "v" ? tenseQuestion(entry, rnd) : null;
+      case "tense": return entry.t === "v" ? tenseQuestion(entry, rnd, lvl) : null;
+      case "phrase": return entry.t === "v" ? phraseQuestion(entry, rnd, Math.max(2, lvl)) : null;
+      case "order": return entry.t === "v" ? orderQuestion(entry, rnd, Math.max(lvl, 1)) : null;
+      case "translate": return entry.t === "v" ? translateQuestion(entry, rnd, lvl) : null;
       case "formid": return formIdQuestion(entry, rnd);
       case "cloze": return clozeQuestion(entry, words, rnd);
       case "spell": return { kind, w: entry.w, prompt: entry.es, answer: entry.w, hint: entry.w.charAt(0) + "·".repeat(Math.max(0, entry.w.length - 1)) };
@@ -407,7 +471,18 @@
   function normalize(x) { return String(x || "").trim().toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, " "); }
 
   function checkAnswer(q, given) {
+    if (q.kind === "translate") return G.checkSentence(q.target, given, wordFor(q.w));
+    if (q.kind === "order") return G.normSentence(given) === G.normSentence(q.answer);
     return normalize(given) === normalize(q.answer);
+  }
+
+  let WORD_INDEX = null;
+  function wordFor(w) {
+    if (!WORD_INDEX) {
+      const list = typeof module !== "undefined" && module.exports ? require("./words.js") : root.WORDS;
+      WORD_INDEX = Object.fromEntries(list.map(e => [e.w, e]));
+    }
+    return WORD_INDEX[w] || {};
   }
 
   /* ---------- aplicar resultado ---------- */
@@ -436,7 +511,7 @@
     ws.last = now;
     s.stats.answers++;
     d.answers++;
-    if (q.kind === "tense" || q.kind === "formid") {
+    if (q.kind === "tense" || q.kind === "formid" || q.kind === "phrase" || q.kind === "order" || q.kind === "translate") {
       const key = q.tense || "formas";
       ws.forms[key] = ws.forms[key] || { ok: 0, ko: 0 };
       ws.forms[key][correct ? "ok" : "ko"]++;
@@ -448,11 +523,15 @@
       d.correct++;
       if (q.kind === "tense") s.stats.tenseOk++;
       if (q.kind === "spell") s.stats.spellOk++;
+      if (q.kind === "order") s.stats.orderOk++;
+      if (q.kind === "translate") s.stats.translateOk++;
       if (ws.due <= now) {
         ws.box = Math.min(MAX_BOX, ws.box + 1);
         ws.due = startOfDay(now) + INTERVALS[ws.box] * DAY;
       }
-      xp = (q.kind === "spell" ? 15 : q.kind === "tense" ? 12 : 10) + Math.min(10, combo * 2);
+      const base = { spell: 15, tense: 12, phrase: 14, order: 16, translate: 25 }[q.kind] || 10;
+      const mult = (LEVELS[s.settings.level] || LEVELS[1]).xp;
+      xp = Math.round((base + Math.min(10, combo * 2)) * mult);
       s.stats.bestCombo = Math.max(s.stats.bestCombo, combo + 1);
     } else {
       ws.ko++;
@@ -472,6 +551,7 @@
   function finishRound(s, now, errors, rnd) {
     const d = today(s, now);
     d.rounds++;
+    if (level(s) === 3) s.stats.advancedRounds++;
     const streakInfo = touchStreak(s, now);
     let bonus = 0;
     if (errors === 0) { s.stats.perfectRounds++; bonus += 20; }
@@ -493,6 +573,58 @@
     s.xp += prize.xp;
     d.xp += prize.xp;
     return prize;
+  }
+
+  // «Ya la sé»: la palabra entra directo en la caja 3 (vuelve en 4 días para confirmar).
+  function markKnown(s, w, now, delayDays) {
+    const ws = wordState(s, w);
+    if (!ws.intro) { ws.intro = now; s.stats.introduced++; }
+    ws.box = Math.max(ws.box, 3);
+    ws.due = startOfDay(now) + (delayDays || INTERVALS[3]) * DAY;
+    s.stats.known++;
+  }
+
+  // Prueba de nivel: 5 palabras de cada tramo de 50 (por frecuencia).
+  function placementQuiz(words, rnd) {
+    const out = [];
+    for (let b = 0; b < 4; b++) {
+      const band = words.slice(b * 50, b * 50 + 50);
+      shuffle(band, rnd).slice(0, 5).forEach(e => out.push(Object.assign({ band: b }, buildKind("meaning", e, words, rnd, 1))));
+    }
+    return out;
+  }
+
+  // Los tramos con 4 o 5 aciertos se marcan como sabidos (repartiendo los repasos en 10 días).
+  function applyPlacement(s, words, results, now, rnd) {
+    const perBand = [0, 0, 0, 0];
+    results.forEach(r => { if (r.ok) perBand[r.band]++; });
+    let marked = 0;
+    const bands = [];
+    perBand.forEach((n, b) => {
+      if (n >= 4) {
+        bands.push(b);
+        words.slice(b * 50, b * 50 + 50).forEach(e => {
+          const ws = s.words[e.w];
+          if (!(ws && ws.intro)) { markKnown(s, e.w, now, 1 + Math.floor(rnd() * 10)); marked++; }
+        });
+      }
+    });
+    const total = perBand.reduce((a, b) => a + b, 0);
+    const suggested = total >= 17 ? 3 : total >= 10 ? 2 : 1;
+    s.stats.placementDone = now;
+    return { perBand, bands, marked, suggested };
+  }
+
+  // Resultado de una partida de viborita.
+  function applySnake(s, now, score, wordsDone) {
+    s.stats.snakeGames++;
+    s.stats.snakeWords += wordsDone.length;
+    s.stats.snakeBest = Math.max(s.stats.snakeBest, score);
+    const xp = Math.round(score / 2);
+    s.xp += xp;
+    today(s, now).xp += xp;
+    wordsDone.forEach(w => { const ws = s.words[w]; if (ws) { ws.seen++; ws.ok++; ws.last = now; } });
+    return xp;
   }
 
   function addTime(s, now, ms) {
@@ -517,7 +649,8 @@
   }
 
   const Engine = {
-    DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS,
+    DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS, LEVELS,
+    markKnown, placementQuiz, applyPlacement, applySnake, pick,
     dayKey, startOfDay, makeRng, shuffle, forms, formLabels,
     newState, migrate, wordState, today, countLearned, boxCounts,
     regenLives, msToNextLife, levelFor, touchStreak, liveStreak,

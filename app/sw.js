@@ -1,8 +1,8 @@
 /* Service worker: guarda la app en el teléfono para que funcione sin conexión. */
-const CACHE = "wordbeat-v1";
+const CACHE = "wordbeat-v2";
 const ASSETS = [
   "./", "index.html", "manifest.webmanifest", "css/styles.css",
-  "js/words.js", "js/engine.js", "js/app.js",
+  "js/words.js", "js/grammar.js", "js/engine.js", "js/snake.js", "js/app.js",
   "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png"
 ];
 

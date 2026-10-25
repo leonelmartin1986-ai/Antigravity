@@ -58,7 +58,9 @@ La lista completa con formas y tiempos verbales está en [WORDS.md](WORDS.md).
 | Sesiones cortas, meta visible | Rondas de 8 preguntas (unos 2 minutos), barra segmentada, anillo de 10 minutos. Solo cuenta el tiempo activo: si te distraés más de un minuto, el reloj se pausa. |
 | Recompensa inmediata y sorpresa | Puntos al instante, combo por aciertos seguidos, bonus por ronda perfecta, cofre con premio variable al cumplir la meta diaria, niveles e insignias. |
 | Sin castigos que bloqueen | 5 vidas que se recargan cada 30 minutos. Sin vidas no hay bloqueo: entrás en práctica libre y recuperás una vida. La racha tiene protectores (uno cada 7 días, máximo 2). |
-| Variedad | 7 tipos de pregunta mezclados en cada ronda. |
+| Variedad | 10 tipos de pregunta mezclados en cada ronda, más la viborita de letras como pausa activa. |
+| Producción de oraciones (efecto de generación) | Ordenar fichas y traducir escribiendo obligan a recuperar la palabra y la gramática a la vez. Se suman en Intermedio y Avanzado para no saturar al principio. |
+| Dificultad ajustable | Básico (5 tiempos, opciones múltiples), Intermedio (7 tiempos, negativas y preguntas, armar oraciones) y Avanzado (11 tiempos, escribir y traducir). La prueba de nivel saltea los tramos de palabras que ya sabés. |
 | Menos distracción | Una sola tarea por pantalla, letra Atkinson Hyperlegible (diseñada para leer fácil), modo calmado sin animaciones, atajos de teclado 1–4. |
 | Registro del uso | Por palabra: veces vista, aciertos, caja, próximo repaso y aciertos por tiempo verbal. Por día: minutos, puntos, respuestas y palabras nuevas. Gráfico de 14 días y distribución por cajas. |
 

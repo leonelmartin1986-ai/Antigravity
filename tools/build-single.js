@@ -13,7 +13,9 @@ const out = [
   "<style>\n" + read("css/styles.css") + "\n</style>",
   body.trim(),
   "<script>\n" + read("js/words.js") + "\n</script>",
+  "<script>\n" + read("js/grammar.js") + "\n</script>",
   "<script>\n" + read("js/engine.js") + "\n</script>",
+  "<script>\n" + read("js/snake.js") + "\n</script>",
   "<script>\n" + read("js/app.js") + "\n</script>"
 ].join("\n");
 const dest = process.argv[2] || path.join(__dirname, "..", "dist", "word-beat.html");
