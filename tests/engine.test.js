@@ -205,3 +205,77 @@ test("viborita suma puntos y registra palabras", () => {
   assert.strictEqual(s.stats.snakeBest, 120);
   assert.strictEqual(s.words.go.ok, 1);
 });
+
+const PHRASES = require("../app/js/phrases.js");
+
+test("frases de reunión: 100 únicas en 4 categorías, con inglés y castellano", () => {
+  assert.strictEqual(PHRASES.length, 100);
+  assert.strictEqual(new Set(PHRASES.map(p => p.id)).size, 100);
+  assert.strictEqual(new Set(PHRASES.map(p => p.en.toLowerCase())).size, 100);
+  const byCat = {};
+  PHRASES.forEach(p => { byCat[p.cat] = (byCat[p.cat] || 0) + 1; assert.ok(p.es && p.en && Array.isArray(p.alt), p.id); });
+  assert.deepStrictEqual(Object.keys(byCat).sort(), ["bye", "hi", "open", "tech"]);
+  assert.ok(PHRASES.filter(p => p.n > 0).length >= 90, "la mayoría sale de tus reuniones");
+});
+
+test("frases: la escritura acepta contracciones, formas alternativas y un error de tipeo", () => {
+  const p = id => PHRASES.find(x => x.id === id);
+  const inv = PHRASES.find(x => x.en === "It's an advance invoice.");
+  assert.ok(E.phraseMatch(inv, "It is an advance invoice"));
+  assert.ok(E.phraseMatch(inv, "its an advance invoce"));
+  assert.ok(E.phraseMatch(inv, "It's a prepayment invoice."));
+  assert.ok(!E.phraseMatch(inv, "It's a credit note."));
+  PHRASES.forEach(a => PHRASES.forEach(b => { if (a !== b) assert.ok(!E.phraseMatch(a, b.en), a.en + " <- " + b.en); }));
+  assert.ok(p("hi01"));
+});
+
+test("frases: preguntas válidas en las 3 dificultades", () => {
+  const s = E.newState(T0);
+  const rnd = E.makeRng(9);
+  for (const lvl of [1, 2, 3]) {
+    s.settings.level = lvl;
+    PHRASES.forEach(p => {
+      for (let box = 0; box <= 3; box++) {
+        const q = E.meetQuestion(s, p, PHRASES, rnd, box);
+        if (q.options) {
+          assert.ok(q.options.includes(q.answer), q.kind + " " + p.id);
+          assert.strictEqual(new Set(q.options).size, q.options.length);
+        }
+        if (q.kind === "porder") assert.ok(E.checkAnswer(q, q.answer));
+        if (q.kind === "ptype") assert.ok(E.checkAnswer(q, p.en));
+        assert.ok(E.checkAnswer(q, q.answer), q.kind);
+      }
+    });
+  }
+});
+
+test("simulador de reunión: sigue saludo, inicio, técnica y cierre", () => {
+  const s = E.newState(T0);
+  const steps = E.buildMeeting(s, PHRASES, T0, E.makeRng(4));
+  const cats = steps.filter(x => x.kind !== "pintro").map(x => x.cat);
+  assert.deepStrictEqual(cats, ["hi", "open", "tech", "tech", "tech", "bye"]);
+  steps.filter(x => x.kind === "pintro").forEach(x => E.introducePhrase(s, x.p, T0));
+  const q = steps.find(x => x.kind !== "pintro");
+  const r = E.applyPhrase(s, q, true, T0, 0, true);
+  assert.ok(r.xp > 0);
+  assert.strictEqual(s.phrases[q.p].box, 1);
+  E.finishPhraseGame(s, T0, "meet", 0);
+  assert.strictEqual(s.stats.meetings, 1);
+});
+
+test("ronda diaria: suma tus frases con su cupo y repaso espaciado", () => {
+  const s = E.newState(T0);
+  const steps = E.buildRound(s, WORDS, T0, E.makeRng(2));
+  assert.strictEqual(steps.filter(x => x.kind === "pintro").length, 1);
+  for (let i = 0; i < 5; i++) {
+    const fresh = E.newPhrasesAvailable(s, PHRASES, T0)[0];
+    if (fresh) E.introducePhrase(s, fresh.id, T0);
+  }
+  assert.strictEqual(s.stats.phrasesIntro, E.PHRASE_NEW_PER_DAY);
+  const id = Object.keys(s.phrases)[0];
+  E.applyPhrase(s, { kind: "pshadow", p: id }, true, T0, 0, true, "half");
+  assert.strictEqual(s.phrases[id].box, 0, "«más o menos» no sube de caja");
+  assert.strictEqual(s.stats.shadowOk, 1);
+  E.applyPhrase(s, { kind: "pchoose", p: id }, false, T0, 0, false);
+  assert.strictEqual(s.lives, E.MAX_LIVES - 1);
+});

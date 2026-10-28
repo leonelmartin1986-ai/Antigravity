@@ -41,6 +41,16 @@ Completa hasta 1000 con inglés de oficina, ERP, finanzas, logística, sistemas 
 
 La lista completa con formas y tiempos verbales está en [WORDS.md](WORDS.md).
 
+### Tus 100 frases de reunión
+
+- **Fuente:** todas las transcripciones legibles de tu OneDrive y SharePoint (34 archivos de texto, .md y .vtt). Solo 8 tienen intervenciones tuyas identificadas por orador: Revisión FDD ajuste pagos en divisa (05/08), Call Tadeo sobre el tablero TUP (02/09), Factura anticipo (18/03), las reuniones del 25/03, 01/04 y 08/04, y las dos de Acuerdo DevOps. Las de NexGen, de talleres y las de la sala de capacitación no te registran como orador, así que no se usaron. Los .docx y videos grandes no se pudieron leer con la herramienta.
+- **Extracción:** un script tomó solo tus intervenciones (unas 2.400 oraciones), descartó los fragmentos que la transcripción convirtió en inglés por error y contó expresiones de 3 a 6 palabras y aperturas de oración.
+- **Selección:** 100 frases en cuatro categorías: saludo inicial (15), inicio de conversación (20), consultas o respuestas técnicas (50) y saludo final (15). Se normalizó la forma (por ejemplo, «quilombo» pasó a «lío»). 94 frases aparecen en tus reuniones; las otras 6 son saludos típicos de una llamada («Buen día a todos», «¿Me escuchan?») que sumamos porque las grabaciones suelen empezar después del saludo.
+- **Las más tuyas:** «o sea» (120 veces), «en realidad» (87), «claro» (68), «exacto» (45), «no sé si» (30), «me parece que» (28), «vamos a tener que» (20). En lo técnico: pedido de venta, nota de crédito, factura anticipo, free text, POS y back office.
+- **Traducción:** al inglés que se usa en una reunión de proyecto, no palabra por palabra («¿Estamos de acuerdo?» → *Are we on the same page?*; «Cancelamos lo pendiente de entrega» → *We cancel the deliver remainder*, como en Dynamics 365). Cada frase tiene una segunda forma válida.
+
+La lista completa está en [PHRASES.md](PHRASES.md).
+
 ## 2. Qué funciona para aprender (y qué cambia con TDAH)
 
 | Hallazgo | Evidencia | Fuerza |
@@ -77,6 +87,8 @@ La lista completa con formas y tiempos verbales está en [WORDS.md](WORDS.md).
 | Producción de oraciones (efecto de generación) | Ordenar fichas y traducir escribiendo obligan a recuperar la palabra y la gramática a la vez. Se suman en Intermedio y Avanzado para no saturar al principio. |
 | Dificultad ajustable | Básico (5 tiempos, opciones múltiples), Intermedio (7 tiempos, negativas y preguntas, armar oraciones) y Avanzado (11 tiempos, escribir y traducir). La prueba de nivel saltea los tramos de palabras que ya sabés. |
 | Menos distracción | Una sola tarea por pantalla, letra Atkinson Hyperlegible (diseñada para leer fácil), modo calmado sin animaciones, atajos de teclado 1–4. |
+| Tus frases, en su contexto | Se recuerda mejor lo que es relevante para uno mismo y lo que se practica en el contexto en que se va a usar (especificidad de la codificación). El simulador de reunión recorre tus frases en el orden de una llamada: saludo, inicio, 3 intervenciones técnicas y cierre. Las frases tienen su propio repaso espaciado y cada ronda diaria suma 1 o 2 (como máximo 3 nuevas por día). |
+| Escuchar y repetir (shadowing) | Repetir en voz alta justo después de escuchar mejora la pronunciación y la fluidez (Hamada, 2016). La app dice la frase (también más lento), vos la repetís y elegís «Me salió bien», «Más o menos» o «Me trabé». Si el navegador tiene reconocimiento de voz, la app te escucha y lo evalúa sola. |
 | Registro del uso | Por palabra: veces vista, aciertos, caja, próximo repaso y aciertos por tiempo verbal. Por día: minutos, puntos, respuestas y palabras nuevas. Gráfico de 14 días y distribución por cajas. |
 
 ## Límites

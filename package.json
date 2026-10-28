@@ -7,6 +7,7 @@
     "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 8080 --directory app",
     "build:single": "node tools/build-single.js dist/word-beat.html",
-    "wordlist": "node tools/gen-wordlist.js > WORDS.md"
+    "wordlist": "node tools/gen-wordlist.js > WORDS.md",
+    "phrases": "node tools/gen-phrases.js > PHRASES.md"
   }
 }

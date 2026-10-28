@@ -56,6 +56,11 @@
     { id: "translator", name: "Traductor", desc: "25 oraciones traducidas escribiendo.", test: s => s.stats.translateOk >= 25 },
     { id: "snake", name: "Viborita", desc: "10 palabras completas en la viborita.", test: s => s.stats.snakeWords >= 10 },
     { id: "snake100", name: "Serpiente sabia", desc: "100 puntos en una partida de viborita.", test: s => s.stats.snakeBest >= 100 },
+    { id: "meeting1", name: "Primera reunión", desc: "Completaste el simulador de reunión.", test: s => s.stats.meetings >= 1 },
+    { id: "meeting10", name: "Reunión en inglés", desc: "10 reuniones simuladas.", test: s => s.stats.meetings >= 10 },
+    { id: "shadow25", name: "Eco", desc: "25 frases repetidas en voz alta.", test: s => s.stats.shadowOk >= 25 },
+    { id: "phrases100", name: "Mis 100 frases", desc: "Viste tus 100 frases de reunión.", test: s => s.stats.phrasesIntro >= 100 },
+    { id: "phrases25", name: "Hablo como en Teams", desc: "25 frases aprendidas (caja 4+).", test: s => countPhrasesLearned(s) >= 25 },
     { id: "advanced", name: "Modo avanzado", desc: "Una ronda completa en dificultad Avanzado.", test: s => s.stats.advancedRounds >= 1 }
   ];
 
@@ -115,11 +120,13 @@
       lives: MAX_LIVES,
       livesTs: now,
       words: {},
+      phrases: {},
       streak: { current: 0, best: 0, last: null, freezes: 0 },
       days: {},
       badges: {},
       stats: { introduced: 0, answers: 0, correct: 0, bestCombo: 0, perfectRounds: 0, tenseOk: 0, spellOk: 0, goalsMet: 0,
-        orderOk: 0, translateOk: 0, snakeWords: 0, snakeBest: 0, snakeGames: 0, advancedRounds: 0, known: 0, placementDone: 0 },
+        orderOk: 0, translateOk: 0, snakeWords: 0, snakeBest: 0, snakeGames: 0, advancedRounds: 0, known: 0, placementDone: 0,
+        phrasesIntro: 0, phraseOk: 0, shadowOk: 0, meetings: 0, shadowSessions: 0 },
       settings: { newPerDay: 5, goalMin: 10, rate: 0.85, sound: true, calm: false, tts: true, level: 1 }
     };
   }
@@ -132,6 +139,7 @@
     out.stats = Object.assign({}, base.stats, s.stats);
     out.settings = Object.assign({}, base.settings, s.settings);
     out.words = s.words || {};
+    out.phrases = s.phrases || {};
     out.days = s.days || {};
     out.badges = s.badges || {};
     return out;
@@ -144,7 +152,7 @@
 
   function today(s, now) {
     const k = dayKey(now);
-    if (!s.days[k]) s.days[k] = { ms: 0, xp: 0, answers: 0, correct: 0, newWords: 0, rounds: 0, goal: false };
+    if (!s.days[k]) s.days[k] = { ms: 0, xp: 0, answers: 0, correct: 0, newWords: 0, newPhrases: 0, rounds: 0, goal: false };
     return s.days[k];
   }
 
@@ -263,6 +271,8 @@
     shuffle(reviews.concat(extra), rnd).forEach(e => {
       steps.push(makeQuestion(s, e, words, rnd, s.words[e.w].box));
     });
+    // Tus frases de reunión: hasta 2 por ronda, con su propio repaso espaciado.
+    if (opts.phrases !== false) phraseSteps(s, allPhrases(), now, rnd, 2).forEach(x => steps.push(x));
     // Segunda exposición de las nuevas al final de la ronda (espaciado dentro de la sesión).
     fresh.forEach(e => steps.push(makeQuestion(s, e, words, rnd, 1)));
     return steps.filter(Boolean);
@@ -474,6 +484,7 @@
   function normalize(x) { return String(x || "").trim().toLowerCase().replace(/[’`]/g, "'").replace(/\s+/g, " "); }
 
   function checkAnswer(q, given) {
+    if (q.p) return checkPhrase(q, given);
     if (q.kind === "translate") return G.checkSentence(q.target, given, wordFor(q.w));
     if (q.kind === "order") return G.normSentence(given) === G.normSentence(q.answer);
     return normalize(given) === normalize(q.answer);
@@ -508,6 +519,7 @@
    * Error: baja a la mitad (no a cero) para no castigar de más y vuelve mañana.
    */
   function applyAnswer(s, q, correct, now, combo, practice) {
+    if (q.p) return applyPhrase(s, q, correct, now, combo, practice);
     const ws = wordState(s, q.w);
     const d = today(s, now);
     ws.seen++;
@@ -655,6 +667,254 @@
     return out;
   }
 
+
+  /* ---------- tus frases de reunión ---------- */
+
+  const PHRASE_CATS = [
+    { id: "hi", es: "Saludo inicial", scene: "Entrás a la llamada de Teams." },
+    { id: "open", es: "Inicio de conversación", scene: "Arranca el tema de la reunión." },
+    { id: "tech", es: "Consulta o respuesta técnica", scene: "Están revisando la solución." },
+    { id: "bye", es: "Saludo final", scene: "La reunión está por terminar." }
+  ];
+  const PHRASE_NEW_PER_DAY = 3;
+  // Simulador: una reunión corta que sigue el orden real de una llamada.
+  const MEETING_PLAN = ["hi", "open", "tech", "tech", "tech", "bye"];
+
+  let PHRASE_LIST = null;
+  function allPhrases() {
+    if (!PHRASE_LIST) PHRASE_LIST = (typeof module !== "undefined" && module.exports ? require("./phrases.js") : root.PHRASES) || [];
+    return PHRASE_LIST;
+  }
+
+  function phraseState(s, id) {
+    if (!s.phrases) s.phrases = {};
+    if (!s.phrases[id]) s.phrases[id] = { box: 0, due: 0, seen: 0, ok: 0, ko: 0, last: 0, intro: 0, shadow: 0 };
+    return s.phrases[id];
+  }
+
+  function duePhrases(s, phrases, now) {
+    const ps = s.phrases || {};
+    return phrases.filter(p => ps[p.id] && ps[p.id].intro && ps[p.id].due <= now)
+      .sort((a, b) => ps[a.id].due - ps[b.id].due || ps[a.id].box - ps[b.id].box);
+  }
+
+  // Las nuevas salen rotando categorías (saludo, inicio, técnica, cierre) y por frecuencia dentro de cada una.
+  function newPhrasesAvailable(s, phrases, now, ignoreCap) {
+    const ps = s.phrases || {};
+    const left = ignoreCap ? phrases.length : Math.max(0, PHRASE_NEW_PER_DAY - (today(s, now).newPhrases || 0));
+    const byCat = PHRASE_CATS.map(c => phrases.filter(p => p.cat === c.id && !(ps[p.id] && ps[p.id].intro)));
+    const out = [];
+    for (let i = 0; out.length < phrases.length; i++) {
+      let added = false;
+      byCat.forEach(list => { if (list[i]) { out.push(list[i]); added = true; } });
+      if (!added) break;
+    }
+    return out.slice(0, left);
+  }
+
+  function introducePhrase(s, id, now) {
+    const ps = phraseState(s, id);
+    if (ps.intro) return 0;
+    ps.intro = now;
+    ps.due = now;
+    s.stats.phrasesIntro++;
+    const d = today(s, now);
+    d.newPhrases = (d.newPhrases || 0) + 1;
+    s.xp += 5;
+    d.xp += 5;
+    return 5;
+  }
+
+  function phraseWords(en) { return en.split(" ").filter(Boolean); }
+
+  // El tipo de ejercicio depende de la dificultad y de cuánto conocés la frase.
+  function meetQuestion(s, p, phrases, rnd, box, forced) {
+    const lvl = level(s);
+    let kind = forced;
+    if (!kind) {
+      const pool = ["pchoose", "plisten"];
+      if (lvl >= 2 && box >= 1) pool.push("porder", "porder");
+      if (lvl >= 3 && box >= 2) pool.push("ptype", "ptype");
+      kind = pick(pool, rnd);
+    }
+    if (kind === "porder" && phraseWords(p.en).length < 2) kind = "pchoose";
+    const cat = PHRASE_CATS.find(c => c.id === p.cat);
+    const q = { kind, p: p.id, cat: p.cat, catEs: cat.es, scene: cat.scene, es: p.es, answer: p.en, full: p.en };
+    if (kind === "pchoose" || kind === "plisten") {
+      const key = kind === "pchoose" ? "en" : "es";
+      const same = shuffle(phrases.filter(x => x.id !== p.id && x.cat === p.cat), rnd);
+      const other = shuffle(phrases.filter(x => x.id !== p.id && x.cat !== p.cat), rnd);
+      const opts = [p[key]];
+      same.concat(other).forEach(x => { if (opts.length < 3 && !opts.includes(x[key])) opts.push(x[key]); });
+      q.options = shuffle(opts, rnd);
+      q.answer = p[key];
+    } else if (kind === "porder") {
+      const tiles = phraseWords(p.en);
+      if (lvl >= 3) {
+        const extra = phraseWords(pick(phrases.filter(x => x.id !== p.id), rnd).en).filter(w => !tiles.includes(w));
+        shuffle(extra, rnd).slice(0, 2).forEach(w => tiles.push(w));
+      }
+      q.tiles = shuffle(tiles, rnd);
+    }
+    return q;
+  }
+
+  function lev(a, b) {
+    const m = a.length, n = b.length;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[n];
+  }
+
+  const EXPAND = [
+    [/\bcan't\b/g, "cannot"], [/\bwon't\b/g, "will not"], [/\blet's\b/g, "let us"], [/\b(\w+)n't\b/g, "$1 not"],
+    [/\b(i)'m\b/g, "$1 am"], [/\b(\w+)'re\b/g, "$1 are"], [/\b(\w+)'ll\b/g, "$1 will"], [/\b(\w+)'ve\b/g, "$1 have"],
+    [/\b(\w+)'d\b/g, "$1 would"], [/\b(it|that|what|how)s\b/g, "$1 is"], [/\bim\b/g, "i am"], [/\blets\b/g, "let us"],
+    [/\b(do|did|is|are|should|does)nt\b/g, "$1 not"], [/\bcant\b/g, "cannot"], [/\bwont\b/g, "will not"], [/\byoure\b/g, "you are"], [/\b(it|that|what|how|there|he|she|who|where)'s\b/g, "$1 is"], [/\bcan not\b/g, "cannot"]
+  ];
+  function normPhrase(x) {
+    let t = G.normSentence(x).replace(/[’`´]/g, "'");
+    EXPAND.forEach(([re, rep]) => { t = t.replace(re, rep); });
+    return t.replace(/'/g, "").replace(/-/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Escribir o decir la frase: acepta contracciones, puntuación, las formas alternativas y un error de tipeo chico.
+  function phraseMatch(p, given, tolerance) {
+    const g = normPhrase(given);
+    if (!g) return false;
+    const targets = [p.en].concat(p.alt || []).map(normPhrase);
+    if (targets.includes(g)) return true;
+    // Un error chico se perdona, salvo que lo escrito sea justo otra de tus frases («We're» y «We were»).
+    if (allPhrases().some(x => x.id !== p.id && [x.en].concat(x.alt || []).some(y => normPhrase(y) === g))) return false;
+    return targets.some(t => lev(g, t) <= Math.max(2, Math.floor(t.length * (tolerance || 0.08))));
+  }
+
+  function phraseFor(id) { return allPhrases().find(x => x.id === id) || null; }
+
+  function checkPhrase(q, given) {
+    const p = phraseFor(q.p);
+    if (q.kind === "ptype" || q.kind === "pshadow") return p ? phraseMatch(p, given) : false;
+    if (q.kind === "porder") return G.normSentence(given) === G.normSentence(q.answer);
+    return normalize(given) === normalize(q.answer);
+  }
+
+  /*
+   * Resultado de una frase. grade "half" = «más o menos» en escuchar y repetir:
+   * cuenta como acierto pero no sube de caja.
+   */
+  function applyPhrase(s, q, correct, now, combo, practice, grade) {
+    const ps = phraseState(s, q.p);
+    const d = today(s, now);
+    ps.seen++;
+    ps.last = now;
+    s.stats.answers++;
+    d.answers++;
+    let xp = 0, lifeLost = false;
+    if (correct) {
+      ps.ok++;
+      s.stats.correct++;
+      d.correct++;
+      s.stats.phraseOk++;
+      if (q.kind === "pshadow") { ps.shadow++; s.stats.shadowOk++; }
+      if (grade !== "half" && ps.due <= now) {
+        ps.box = Math.min(MAX_BOX, ps.box + 1);
+        ps.due = startOfDay(now) + INTERVALS[ps.box] * DAY;
+      }
+      const base = { pchoose: 10, plisten: 12, porder: 16, ptype: 25, pshadow: 14 }[q.kind] || 10;
+      const mult = (LEVELS[s.settings.level] || LEVELS[1]).xp;
+      xp = Math.round((base + Math.min(10, combo * 2)) * mult * (grade === "half" ? 0.5 : 1));
+      s.stats.bestCombo = Math.max(s.stats.bestCombo, combo + 1);
+    } else {
+      ps.ko++;
+      ps.box = Math.max(ps.box > 0 ? 1 : 0, Math.floor(ps.box / 2));
+      ps.due = startOfDay(now) + DAY;
+      if (!practice && s.lives > 0) {
+        if (s.lives === MAX_LIVES) s.livesTs = now;
+        s.lives--;
+        lifeLost = true;
+      }
+    }
+    s.xp += xp;
+    d.xp += xp;
+    return { xp, lifeLost };
+  }
+
+  // En cada ronda diaria: hasta 2 frases (primero las vencidas; si no hay, una nueva con su tarjeta).
+  function phraseSteps(s, phrases, now, rnd, max) {
+    const steps = [];
+    const due = duePhrases(s, phrases, now).slice(0, max);
+    due.forEach(p => steps.push(meetQuestion(s, p, phrases, rnd, s.phrases[p.id].box)));
+    if (steps.length < max) {
+      const fresh = newPhrasesAvailable(s, phrases, now)[0];
+      if (fresh) { steps.push({ kind: "pintro", p: fresh.id }); steps.push(meetQuestion(s, fresh, phrases, rnd, 0, "pchoose")); }
+    }
+    return steps.slice(0, max + 1);
+  }
+
+  // Elige la frase para un momento de la reunión: vencidas, después las más flojas, después una nueva.
+  function pickPhraseFor(s, phrases, cat, now, rnd, used, allowNew) {
+    const ps = s.phrases || {};
+    const list = phrases.filter(p => p.cat === cat && !used.has(p.id));
+    const seen = list.filter(p => ps[p.id] && ps[p.id].intro);
+    const due = seen.filter(p => ps[p.id].due <= now);
+    if (due.length) return { p: pick(due, rnd), fresh: false };
+    const fresh = list.find(p => !(ps[p.id] && ps[p.id].intro));
+    if (allowNew && fresh) return { p: fresh, fresh: true };
+    if (seen.length) {
+      const weak = seen.slice().sort((a, b) => ps[a.id].box - ps[b.id].box || ps[a.id].last - ps[b.id].last).slice(0, 4);
+      return { p: pick(weak, rnd), fresh: false };
+    }
+    return fresh ? { p: fresh, fresh: true } : null;
+  }
+
+  function buildMeeting(s, phrases, now, rnd) {
+    const used = new Set();
+    const steps = [];
+    let freshLeft = 2;
+    MEETING_PLAN.forEach((cat, i) => {
+      const r = pickPhraseFor(s, phrases, cat, now, rnd, used, freshLeft > 0);
+      if (!r) return;
+      used.add(r.p.id);
+      const stage = { stage: i + 1, stages: MEETING_PLAN.length };
+      if (r.fresh) { freshLeft--; steps.push(Object.assign({ kind: "pintro", p: r.p.id }, stage)); }
+      const box = r.fresh ? 0 : s.phrases[r.p.id].box;
+      steps.push(Object.assign(meetQuestion(s, r.p, phrases, rnd, box, r.fresh ? "pchoose" : null), stage));
+    });
+    return steps;
+  }
+
+  // Escuchar y repetir: frases que ya viste (vencidas primero) y, si faltan, nuevas.
+  function buildShadow(s, phrases, now, rnd, n) {
+    n = n || 6;
+    const ps = s.phrases || {};
+    const due = duePhrases(s, phrases, now);
+    const rest = shuffle(phrases.filter(p => ps[p.id] && ps[p.id].intro && !due.includes(p)), rnd);
+    const fresh = newPhrasesAvailable(s, phrases, now, true);
+    return due.concat(rest, fresh).slice(0, n).map(p => {
+      const cat = PHRASE_CATS.find(c => c.id === p.cat);
+      return { kind: "pshadow", p: p.id, cat: p.cat, catEs: cat.es, es: p.es, answer: p.en, full: p.en, fresh: !(ps[p.id] && ps[p.id].intro) };
+    });
+  }
+
+  function finishPhraseGame(s, now, mode, errors) {
+    const d = today(s, now);
+    if (mode === "meet") s.stats.meetings++;
+    if (mode === "shadow") s.stats.shadowSessions++;
+    const streakInfo = touchStreak(s, now);
+    const bonus = errors === 0 ? 15 : 0;
+    s.xp += bonus;
+    d.xp += bonus;
+    return { bonus, streakInfo };
+  }
+
+  function countPhrasesLearned(s) {
+    return Object.values(s.phrases || {}).filter(x => x.box >= LEARNED_BOX).length;
+  }
+
   const Engine = {
     BANDS, PER_BAND, DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS, LEVELS,
     markKnown, placementQuiz, applyPlacement, applySnake, pick,
@@ -662,6 +922,8 @@
     newState, migrate, wordState, today, countLearned, boxCounts,
     regenLives, msToNextLife, levelFor, touchStreak, liveStreak,
     dueWords, newWordsAvailable, buildRound, makeQuestion, buildKind, conj, conjugationTable, availableTenses,
+    PHRASE_CATS, PHRASE_NEW_PER_DAY, MEETING_PLAN, allPhrases, phraseState, duePhrases, newPhrasesAvailable, introducePhrase,
+    meetQuestion, phraseMatch, checkPhrase, applyPhrase, phraseSteps, buildMeeting, buildShadow, finishPhraseGame, countPhrasesLearned,
     checkAnswer, introduce, applyAnswer, finishRound, openChest, addTime, newBadges, lastDays
   };
 

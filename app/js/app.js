@@ -4,12 +4,15 @@
   const E = window.Engine;
   const WORDS = window.WORDS;
   const BY_WORD = Object.fromEntries(WORDS.map(w => [w.w, w]));
+  const PHRASES = window.PHRASES || [];
+  const BY_PHRASE = Object.fromEntries(PHRASES.map(p => [p.id, p]));
   const KEY = "wordbeat.v1";
   const $ = id => document.getElementById(id);
 
   const TYPE_ES = { v: "verbo", aux: "verbo auxiliar", pron: "pronombre", n: "sustantivo", adj: "adjetivo", adv: "adverbio", prep: "preposición", conj: "conjunción", det: "determinante", num: "número" };
   const BOX_ES = ["Nueva", "Caja 1 · mañana", "Caja 2 · 2 días", "Caja 3 · 4 días", "Caja 4 · 1 semana", "Caja 5 · 15 días", "Caja 6 · 1 mes", "Caja 7 · dominada"];
-  const KIND_ES = { meaning: "¿Qué significa?", reverse: "¿Cómo se dice en inglés?", listen: "Escuchá y elegí", tense: "Completá con el tiempo verbal", formid: "¿Qué forma es?", cloze: "Completá la frase", spell: "Escribila en inglés", phrase: "Elegí el verbo conjugado", order: "Armá la oración", translate: "Traducí la oración" };
+  const KIND_ES = { meaning: "¿Qué significa?", reverse: "¿Cómo se dice en inglés?", listen: "Escuchá y elegí", tense: "Completá con el tiempo verbal", formid: "¿Qué forma es?", cloze: "Completá la frase", spell: "Escribila en inglés", phrase: "Elegí el verbo conjugado", order: "Armá la oración", translate: "Traducí la oración",
+    pchoose: "¿Cómo lo decís en inglés?", plisten: "Escuchá: ¿qué significa?", porder: "Armá tu frase", ptype: "Escribí tu frase en inglés", pshadow: "Escuchá y repetí" };
   const Gr = window.Grammar;
 
   const TIPS = [
@@ -34,6 +37,7 @@
     { t: "Sin castigos que bloqueen", p: "La frustración y la sensibilidad al rechazo hacen que muchas personas con TDAH abandonen un hábito ante un mal día.", a: "Las vidas nunca te dejan afuera: sin vidas entrás en práctica libre y recuperás una. Un error baja la palabra a la mitad, no a cero. La racha tiene protectores." },
     { t: "Producir oraciones, no solo reconocer", p: "Armar y escribir la oración completa obliga a recuperar la palabra y la gramática a la vez (efecto de generación). Es más difícil que elegir una opción, por eso aparece en las dificultades Intermedio y Avanzado.", a: "Ejercicios de ordenar fichas y de traducir escribiendo, con los 11 tiempos en afirmativa, negativa y pregunta." },
     { t: "Pausas activas con juego", p: "Un cambio de actividad corto y con movimiento ayuda a recuperar la atención sin dejar de practicar.", a: "La viborita repasa la ortografía de las palabras y sus tiempos verbales comiendo letras en orden." },
+    { t: "Tus propias frases, en su contexto", p: "Se recuerda mejor lo que es relevante para uno mismo (efecto de autorreferencia) y lo que se practica en el mismo contexto en el que se va a usar (especificidad de la codificación, Tulving). El shadowing, repetir en voz alta justo después de escuchar, mejora la pronunciación y la fluidez al hablar (Hamada, 2016).", a: "Tus 100 frases salen de tus reuniones reales y se practican en el orden de una llamada: saludo, inicio, parte técnica y cierre. En «Escuchar y repetir» las decís en voz alta." },
     { t: "Variedad para sostener la atención", p: "Alternar tipos de tarea (práctica intercalada) mejora la retención y reduce el aburrimiento.", a: "Siete tipos de pregunta: significado, al revés, escuchar, tiempos verbales, forma verbal, completar frases y escribir." }
   ];
 
@@ -59,11 +63,12 @@
     voice = vs.find(v => /en[-_]US/i.test(v.lang) && /samantha|google|aria|jenny|natural/i.test(v.name)) || vs.find(v => /en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
   }
   if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  function speak(text) {
+  function speak(text, slow) {
     if (!text) return;
+    const rate = (Number(S.settings.rate) || 0.85) * (slow ? 0.7 : 1);
     // En la app de Android la voz la pone el sistema (WebView no trae speechSynthesis).
     if (window.AndroidTTS) {
-      try { window.AndroidTTS.speak(String(text), Number(S.settings.rate) || 0.85); } catch (e) { /* la voz es opcional */ }
+      try { window.AndroidTTS.speak(String(text), rate); } catch (e) { /* la voz es opcional */ }
       return;
     }
     if (!("speechSynthesis" in window)) return;
@@ -72,7 +77,7 @@
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       if (voice) u.voice = voice;
-      u.rate = Number(S.settings.rate) || 0.85;
+      u.rate = rate;
       speechSynthesis.speak(u);
     } catch (e) { /* la voz es opcional */ }
   }
@@ -195,6 +200,8 @@
     } else note.hidden = true;
 
     $("v-diff").textContent = "Dificultad: " + E.LEVELS[S.settings.level || 1].name;
+    const pDue = E.duePhrases(S, PHRASES, now).length;
+    $("v-meet-home").textContent = pDue ? pDue + " para repasar" : (S.stats.phrasesIntro || 0) + "/" + PHRASES.length;
     $("placement-banner").hidden = !!S.stats.placementDone || S.stats.introduced >= 30;
 
     const dayIdx = Math.floor(now / E.DAY);
@@ -212,6 +219,7 @@
     if (view === "home") renderHome();
     if (view === "snake") snakeOpen();
     if (view === "words") renderWords();
+    if (view === "meet") renderMeet();
     if (view === "stats") renderStats();
     if (view === "more") renderMore();
     renderTop();
@@ -266,6 +274,7 @@
     const st = R.steps[R.i];
     if (!st) return endRound();
     R.waiting = false;
+    if (st.p) return renderPhraseStep(st);
     const e = BY_WORD[st.w];
     if (st.kind === "intro") return renderIntro(e);
 
@@ -315,43 +324,8 @@
 
     if (st.kind === "listen" || (st.kind === "meaning" && S.settings.tts)) setTimeout(() => speak(e.w), 150);
     document.querySelectorAll("#card .opt").forEach(b => b.addEventListener("click", () => answer(b.dataset.opt, b)));
-    if (st.kind === "order") {
-      const picked = [];
-      const build = $("build");
-      const draw = () => {
-        build.innerHTML = picked.map((i, k) => '<button type="button" class="tile" data-k="' + k + '">' + esc(st.tiles[i]) + "</button>").join("");
-        document.querySelectorAll("#tiles .tile").forEach(b => b.classList.toggle("used", picked.includes(Number(b.dataset.i))));
-      };
-      $("tiles").addEventListener("click", ev => {
-        const b = ev.target.closest(".tile");
-        if (!b || R.waiting || picked.includes(Number(b.dataset.i))) return;
-        picked.push(Number(b.dataset.i));
-        speak(st.tiles[Number(b.dataset.i)]);
-        draw();
-      });
-      build.addEventListener("click", ev => {
-        const b = ev.target.closest(".tile");
-        if (!b || R.waiting) return;
-        picked.splice(Number(b.dataset.k), 1);
-        draw();
-      });
-      $("order-clear").addEventListener("click", () => { if (!R.waiting) { picked.length = 0; draw(); } });
-      $("order-go").addEventListener("click", () => { if (picked.length) answer(picked.map(i => st.tiles[i]).join(" "), build); });
-    }
-    if (st.kind === "translate") {
-      const inp = $("tr-in");
-      setTimeout(() => inp.focus(), 50);
-      let shown = 0;
-      const words = st.full.split(" ");
-      $("tr-hint").addEventListener("click", () => {
-        shown = Math.min(words.length, shown + 2);
-        inp.placeholder = words.slice(0, shown).join(" ") + " …";
-        st.usedHint = true;
-      });
-      const submit = () => { if (inp.value.trim()) answer(inp.value, inp); };
-      $("tr-go").addEventListener("click", submit);
-      inp.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); submit(); } });
-    }
+    if (st.kind === "order") wireOrder(st);
+    if (st.kind === "translate") wireTranslate(st);
     if (st.kind === "spell") {
       const inp = $("spell-in");
       setTimeout(() => inp.focus(), 50);
@@ -366,6 +340,209 @@
       inp.addEventListener("keydown", ev => { if (ev.key === "Enter") submit(); });
     }
   }
+
+  // Fichas para armar una oración o una frase (order y porder).
+  function wireOrder(st) {
+    const picked = [];
+    const build = $("build");
+    const draw = () => {
+      build.innerHTML = picked.map((i, k) => '<button type="button" class="tile" data-k="' + k + '">' + esc(st.tiles[i]) + "</button>").join("");
+      document.querySelectorAll("#tiles .tile").forEach(b => b.classList.toggle("used", picked.includes(Number(b.dataset.i))));
+    };
+    $("tiles").addEventListener("click", ev => {
+      const b = ev.target.closest(".tile");
+      if (!b || R.waiting || picked.includes(Number(b.dataset.i))) return;
+      picked.push(Number(b.dataset.i));
+      speak(st.tiles[Number(b.dataset.i)]);
+      draw();
+    });
+    build.addEventListener("click", ev => {
+      const b = ev.target.closest(".tile");
+      if (!b || R.waiting) return;
+      picked.splice(Number(b.dataset.k), 1);
+      draw();
+    });
+    $("order-clear").addEventListener("click", () => { if (!R.waiting) { picked.length = 0; draw(); } });
+    $("order-go").addEventListener("click", () => { if (picked.length) answer(picked.map(i => st.tiles[i]).join(" "), build); });
+  }
+
+  // Escribir la oración o la frase completa (translate y ptype).
+  function wireTranslate(st) {
+    const inp = $("tr-in");
+    setTimeout(() => inp.focus(), 50);
+    let shown = 0;
+    const words = st.full.split(" ");
+    $("tr-hint").addEventListener("click", () => {
+      shown = Math.min(words.length, shown + 2);
+      inp.placeholder = words.slice(0, shown).join(" ") + " …";
+      st.usedHint = true;
+    });
+    const submit = () => { if (inp.value.trim()) answer(inp.value, inp); };
+    $("tr-go").addEventListener("click", submit);
+    inp.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); submit(); } });
+  }
+
+  /* ---------- tus frases de reunión ---------- */
+  const CAT_ES = Object.fromEntries(E.PHRASE_CATS.map(c => [c.id, c.es]));
+  const ICON_MIC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1a7 7 0 0 0 6-6.9z"/></svg>';
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+  function timesLabel(p) { return p.n ? "La dijiste " + p.n + (p.n === 1 ? " vez" : " veces") + " en tus reuniones" : "Frase típica de reunión"; }
+
+  function phraseHead(st, label) {
+    const p = BY_PHRASE[st.p];
+    let h = '<p class="q-type"><span>' + esc(label) + "</span><span>" + esc(CAT_ES[p.cat]) + "</span></p>";
+    if (st.stage) h += '<p class="meet-stage"><span class="pill">Momento ' + st.stage + " de " + st.stages + "</span>" + esc(E.PHRASE_CATS.find(c => c.id === p.cat).scene) + "</p>";
+    return h;
+  }
+
+  function renderPhraseStep(st) {
+    const p = BY_PHRASE[st.p];
+    if (st.kind === "pintro") return renderPhraseIntro(st, p);
+    if (st.kind === "pshadow") return renderShadow(st, p);
+    let body = phraseHead(st, KIND_ES[st.kind]);
+    if (st.kind === "plisten") {
+      body += '<button type="button" class="speak big" data-say="' + esc(p.en) + '" aria-label="Escuchar otra vez">' + ICON_SPEAK + "</button>";
+    } else {
+      body += '<p class="es-sentence">«' + esc(p.es) + "»</p>";
+    }
+    if (st.kind === "porder") {
+      body += '<div class="build-line" id="build" aria-label="Tu frase"></div>';
+      body += '<div class="tiles" id="tiles">' + st.tiles.map((t, i) => '<button type="button" class="tile" data-i="' + i + '">' + esc(t) + "</button>").join("") + "</div>";
+      body += '<div class="order-row"><button type="button" class="btn btn-ghost" id="order-clear">Borrar</button><button type="button" class="btn btn-play" id="order-go">Comprobar</button></div>';
+    } else if (st.kind === "ptype") {
+      body += '<textarea class="translate-in" id="tr-in" rows="2" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Escribila en inglés" aria-label="Tu frase en inglés"></textarea>';
+      body += '<div class="order-row"><button type="button" class="btn btn-ghost" id="tr-hint">Pista</button><button type="button" class="btn btn-play" id="tr-go">Comprobar</button></div>';
+    } else {
+      body += '<div class="options">' + st.options.map((o, i) => '<button type="button" class="opt" data-opt="' + esc(o) + '"><span class="opt-key">' + (i + 1) + "</span>" + esc(o) + "</button>").join("") + "</div>";
+    }
+    cardEnter(body);
+    if (st.kind === "plisten") setTimeout(() => speak(p.en), 150);
+    document.querySelectorAll("#card .opt").forEach(b => b.addEventListener("click", () => answer(b.dataset.opt, b)));
+    if (st.kind === "porder") wireOrder(st);
+    if (st.kind === "ptype") wireTranslate(st);
+  }
+
+  function renderPhraseIntro(st, p) {
+    let body = phraseHead(st, "Frase nueva");
+    body += '<p class="phrase-en">' + esc(p.en) + "</p>";
+    body += '<div class="intro-meta"><button type="button" class="speak" data-say="' + esc(p.en) + '">' + ICON_SPEAK + 'Escuchar</button><button type="button" class="speak" data-say="' + esc(p.en) + '" data-slow="1">' + ICON_SPEAK + "Lento</button></div>";
+    body += '<p class="intro-es">«' + esc(p.es) + "»</p>";
+    body += '<p class="hint" style="text-align:center">' + esc(timesLabel(p)) + (p.alt && p.alt.length ? ". También: «" + esc(p.alt[0]) + "»" : "") + "</p>";
+    body += '<div class="memo"><b>Para fijarla</b>Decila en voz alta dos veces, como si ya estuvieras en la reunión. Imaginá a quién se la decís.</div>';
+    body += '<div class="order-row"><span></span><button type="button" class="btn btn-play" id="intro-ok">¡La tengo!</button></div>';
+    cardEnter(body);
+    if (S.settings.tts) setTimeout(() => speak(p.en), 200);
+    $("intro-ok").addEventListener("click", () => {
+      const xp = E.introducePhrase(S, p.id, Date.now());
+      R.xp += xp;
+      R.introduced.push(p.id);
+      R.results[R.i] = "intro";
+      save();
+      next();
+    });
+  }
+
+  // Escuchar y repetir (shadowing): la app la dice, vos la repetís en voz alta y te autoevaluás.
+  function renderShadow(st, p) {
+    let body = phraseHead(st, st.fresh ? "Escuchá y repetí · frase nueva" : KIND_ES.pshadow);
+    body += '<p class="es-sentence">«' + esc(p.es) + "»</p>";
+    body += '<div class="shadow-ctl"><button type="button" class="speak big" data-say="' + esc(p.en) + '" aria-label="Escuchar">' + ICON_SPEAK + '</button><button type="button" class="speak" data-say="' + esc(p.en) + '" data-slow="1">Más lento</button></div>';
+    body += '<p class="phrase-en shadow-text" id="sh-text" hidden>' + esc(p.en) + "</p>";
+    body += '<button type="button" class="link-btn" id="sh-show" style="justify-self:center">Mostrar el texto</button>';
+    if (SR) body += '<button type="button" class="btn btn-ghost" id="sh-mic">' + ICON_MIC + "Decila y te escucho</button>";
+    body += '<p class="hint" id="sh-msg" style="text-align:center">Repetila en voz alta, con el mismo ritmo. Después contá cómo te salió.</p>';
+    body += '<div class="grade-row"><button type="button" class="btn btn-ghost" data-grade="bad">Me trabé</button><button type="button" class="btn btn-ghost" data-grade="half">Más o menos</button><button type="button" class="btn btn-ok" data-grade="good">Me salió bien</button></div>';
+    cardEnter(body);
+    setTimeout(() => speak(p.en), 200);
+    $("sh-show").addEventListener("click", () => { $("sh-text").hidden = false; $("sh-show").hidden = true; st.usedHint = true; });
+    document.querySelectorAll("#card [data-grade]").forEach(b => b.addEventListener("click", () => gradeShadow(st, p, b.dataset.grade)));
+    if (SR) $("sh-mic").addEventListener("click", () => {
+      const msg = $("sh-msg");
+      try {
+        const r = new SR();
+        r.lang = "en-US";
+        r.maxAlternatives = 3;
+        r.onresult = ev => {
+          const alts = Array.from(ev.results[0]).map(a => a.transcript);
+          const ok = alts.some(a => E.phraseMatch(p, a, 0.25));
+          msg.textContent = "Entendí: «" + alts[0] + "»";
+          $("sh-text").hidden = false;
+          setTimeout(() => gradeShadow(st, p, ok ? "good" : "half"), 900);
+        };
+        r.onerror = () => { msg.textContent = "No te pude escuchar. Usá los botones de abajo."; };
+        msg.textContent = "Te escucho…";
+        r.start();
+      } catch (e) { msg.textContent = "El micrófono no está disponible. Usá los botones de abajo."; }
+    });
+  }
+
+  function gradeShadow(st, p, grade) {
+    if (R.waiting) return;
+    R.waiting = true;
+    lastActivity = Date.now();
+    const now = Date.now();
+    if (st.fresh) { R.xp += E.introducePhrase(S, p.id, now); R.introduced.push(p.id); }
+    const ok = grade !== "bad";
+    const res = E.applyPhrase(S, st, ok, now, R.combo, true, grade === "half" ? "half" : null);
+    R.xp += res.xp;
+    R.results[R.i] = ok;
+    if (ok) { R.combo++; R.correct++; sfx.ok(); } else { R.combo = 0; R.errors++; sfx.ko(); }
+    document.querySelectorAll("#card [data-grade]").forEach(b => { b.disabled = true; });
+    $("sh-text").hidden = false;
+    renderTop();
+    renderSegments();
+    const fb = $("feedback");
+    let html = '<p class="fb-title">' + (grade === "good" ? pickPraise() : grade === "half" ? "Bien, vuelve pronto para pulirla." : "No pasa nada: mañana la repetimos.") + (res.xp ? ' <span class="fb-xp">+' + res.xp + " XP</span>" : "") + "</p>";
+    html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(p.en) + '">' + ICON_SPEAK + esc(p.en) + "</button></p>";
+    if (!ok) html += '<div class="memo"><b>Truco</b>Escuchala en «Más lento» y repetí de a pedacitos: primero las 2 o 3 primeras palabras, después la frase entera.</div>';
+    html += '<button type="button" class="btn ' + (ok ? "btn-ok" : "btn-play") + ' btn-wide" id="fb-next">Seguir</button>';
+    fb.className = "feedback " + (ok ? "ok" : "ko");
+    fb.innerHTML = html;
+    fb.hidden = false;
+    $("fb-next").addEventListener("click", next);
+    save();
+    if (ok) R.autoNext = setTimeout(next, 2200);
+  }
+
+  function startPhraseGame(mode) {
+    if (!PHRASES.length) return;
+    const now = Date.now();
+    const steps = mode === "meet" ? E.buildMeeting(S, PHRASES, now, rnd) : E.buildShadow(S, PHRASES, now, rnd, 6);
+    if (!steps.length) { toast("No hay frases para jugar."); return; }
+    R = { mode, steps, i: 0, combo: 0, errors: 0, correct: 0, xp: 0, practice: true, results: [], introduced: [], levelStart: E.levelFor(S.xp).level, waiting: false };
+    go("play");
+    renderSegments();
+    renderStep();
+  }
+
+  let meetFilter = "all";
+  function renderMeet() {
+    const ps = S.phrases || {};
+    const now = Date.now();
+    const due = E.duePhrases(S, PHRASES, now).length;
+    $("v-meet-sub").textContent = (S.stats.phrasesIntro || 0) + " de " + PHRASES.length + " vistas · " + E.countPhrasesLearned(S) + " aprendidas" + (due ? " · " + due + " para repasar hoy" : "");
+    $("meet-cats").innerHTML = E.PHRASE_CATS.map(c => {
+      const list = PHRASES.filter(p => p.cat === c.id);
+      const seen = list.filter(p => ps[p.id] && ps[p.id].intro).length;
+      return '<div class="box-row learned"><span>' + esc(c.es) + '</span><div class="box-track"><div class="box-fill" style="width:' + (seen / list.length * 100).toFixed(1) + '%"></div></div><span style="text-align:right">' + seen + "/" + list.length + "</span></div>";
+    }).join("");
+    const list = PHRASES.filter(p => meetFilter === "all" || p.cat === meetFilter);
+    $("phrase-list").innerHTML = list.map(p => {
+      const st = ps[p.id];
+      const box = st && st.intro ? st.box : -1;
+      let dots = "";
+      for (let i = 1; i <= E.MAX_BOX; i++) dots += '<span class="dot' + (box >= i ? (box >= E.LEARNED_BOX ? " on gold" : " on") : "") + '"></span>';
+      return '<li><button type="button" class="word-row phrase-row" data-say="' + esc(p.en) + '"><span class="wr-rank">' + (p.n ? p.n + "×" : "–") + '</span><span class="wr-main"><span class="wr-w">' + esc(p.en) + '</span><span class="wr-es">' + esc(p.es) + '</span></span><span class="dots" aria-label="' + esc(box < 0 ? "sin ver" : BOX_ES[box]) + '">' + dots + "</span></button></li>";
+    }).join("");
+  }
+  if ($("meet-filters")) $("meet-filters").addEventListener("click", ev => {
+    const c = ev.target.closest(".chip");
+    if (!c) return;
+    meetFilter = c.dataset.filter;
+    document.querySelectorAll("#meet-filters .chip").forEach(x => x.classList.toggle("on", x === c));
+    renderMeet();
+  });
 
   function tensePills(st) {
     return '<div class="q-tense"><span class="pill">' + esc(st.tenseEs) + '</span><span class="pill sun">' + esc(st.hint) + "</span></div>";
@@ -438,7 +615,8 @@
     R.waiting = true;
     lastActivity = Date.now();
     const st = R.steps[R.i];
-    const e = BY_WORD[st.w];
+    const e = st.p ? null : BY_WORD[st.w];
+    const ph = st.p ? BY_PHRASE[st.p] : null;
     const ok = E.checkAnswer(st, given);
     const res = E.applyAnswer(S, st, ok, Date.now(), R.combo, R.practice);
     let xp = res.xp;
@@ -453,8 +631,8 @@
       if (E.checkAnswer(st, b.dataset.opt)) b.classList.add("ok");
       else if (b === el) b.classList.add("ko");
     });
-    if (st.kind === "spell" || st.kind === "translate") { el.classList.add(ok ? "ok" : "ko"); el.disabled = true; }
-    if (st.kind === "order") el.classList.add(ok ? "ok" : "ko");
+    if (st.kind === "spell" || st.kind === "translate" || st.kind === "ptype") { el.classList.add(ok ? "ok" : "ko"); el.disabled = true; }
+    if (st.kind === "order" || st.kind === "porder") el.classList.add(ok ? "ok" : "ko");
     if (res.lifeLost) popStat("stat-lives");
     if (xp) popStat("stat-xp");
     renderTop();
@@ -462,9 +640,12 @@
 
     // feedback: en errores se repasa el ancla (volver a codificar es lo que más sirve)
     const fb = $("feedback");
-    const shown = st.kind === "order" || st.kind === "translate" ? st.full : st.answer;
+    const shown = ["order", "translate", "porder", "ptype"].includes(st.kind) ? st.full : st.answer;
     let html = '<p class="fb-title">' + (ok ? pickPraise() : "Casi. Era «" + esc(shown) + "»") + (xp ? ' <span class="fb-xp">+' + xp + " XP</span>" : "") + "</p>";
-    if (st.kind === "phrase" || st.kind === "order" || st.kind === "translate") {
+    if (ph) {
+      html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(ph.en) + '">' + ICON_SPEAK + esc(ph.en) + "</button></p>";
+      html += '<p class="fb-es">«' + esc(ph.es) + "» · " + esc(CAT_ES[ph.cat]) + "</p>";
+    } else if (st.kind === "phrase" || st.kind === "order" || st.kind === "translate") {
       html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(st.full) + '">' + ICON_SPEAK + esc(st.full) + "</button></p>";
       html += '<p class="fb-es">' + esc(st.es) + " · " + esc(st.tenseEs) + "</p>";
     } else if (st.kind === "tense") {
@@ -476,17 +657,19 @@
     } else {
       html += '<p class="fb-body"><strong>' + esc(e.w) + "</strong> = " + esc(e.es) + "</p>";
     }
-    if (!ok) html += '<div class="memo"><b>Ancla</b>' + esc(e.mn) + "</div>";
+    if (!ok && e) html += '<div class="memo"><b>Ancla</b>' + esc(e.mn) + "</div>";
+    if (!ok && ph) html += '<div class="memo"><b>Para fijarla</b>Escuchala y decila en voz alta dos veces antes de seguir.</div>';
     html += '<button type="button" class="btn ' + (ok ? "btn-ok" : "btn-play") + ' btn-wide" id="fb-next">Seguir</button>';
     fb.className = "feedback " + (ok ? "ok" : "ko");
     fb.innerHTML = html;
     fb.hidden = false;
-    if (S.settings.tts && ["tense", "phrase", "order", "translate"].includes(st.kind)) speak(st.full);
+    if (ph) { if (S.settings.tts) speak(ph.en); }
+    else if (S.settings.tts && ["tense", "phrase", "order", "translate"].includes(st.kind)) speak(st.full);
     else if (S.settings.tts && !ok) speak(e.w);
     $("fb-next").addEventListener("click", next);
     if (!ok) fb.scrollIntoView({ behavior: "smooth", block: "nearest" });
     save();
-    if (ok) R.autoNext = setTimeout(next, ["order", "translate", "phrase"].includes(st.kind) ? 2600 : st.kind === "tense" ? 1900 : 1100);
+    if (ok) R.autoNext = setTimeout(next, ph || ["order", "translate", "phrase"].includes(st.kind) ? 2600 : st.kind === "tense" ? 1900 : 1100);
   }
 
   const PRAISE = ["¡Bien!", "¡Exacto!", "¡Eso es!", "¡Genial!", "¡Perfecto!", "¡Muy bien!"];
@@ -502,10 +685,11 @@
 
   function endRound() {
     const now = Date.now();
-    const fin = E.finishRound(S, now, R.errors, rnd);
+    const mode = R.mode;
+    const fin = mode ? E.finishPhraseGame(S, now, mode, R.errors) : E.finishRound(S, now, R.errors, rnd);
     R.xp += fin.bonus;
     let regained = false;
-    if (R.practice && R.correct >= Math.ceil(R.steps.length * 0.6)) { S.lives = Math.min(E.MAX_LIVES, S.lives + 1); S.livesTs = now; regained = true; }
+    if (!mode && R.practice && R.correct >= Math.ceil(R.steps.length * 0.6)) { S.lives = Math.min(E.MAX_LIVES, S.lives + 1); S.livesTs = now; regained = true; }
     const d = E.today(S, now);
     const goalReached = d.ms >= Number(S.settings.goalMin) * 60000 && !d.goal;
     const badges = E.newBadges(S);
@@ -514,10 +698,13 @@
     save();
 
     const total = R.results.filter(x => x === true || x === false).length;
-    const title = R.errors === 0 && total > 0 ? "¡Ronda perfecta!" : R.correct >= total * 0.7 ? "¡Buena ronda!" : "Ronda completa";
-    let html = '<p class="eyebrow">Ronda terminada</p><h2 class="sum-title">' + title + "</h2>";
+    const title = mode === "meet" ? (R.errors === 0 ? "¡Reunión impecable!" : "¡Reunión terminada!")
+      : mode === "shadow" ? (R.errors === 0 ? "¡Eco perfecto!" : "¡Bien repetido!")
+      : R.errors === 0 && total > 0 ? "¡Ronda perfecta!" : R.correct >= total * 0.7 ? "¡Buena ronda!" : "Ronda completa";
+    const eyebrow = mode === "meet" ? "Simulador de reunión" : mode === "shadow" ? "Escuchar y repetir" : "Ronda terminada";
+    let html = '<p class="eyebrow">' + eyebrow + '</p><h2 class="sum-title">' + title + "</h2>";
     html += '<div class="sum-grid">' +
-      mini("+" + R.xp, "puntos") + mini(R.correct + "/" + total, "aciertos") + mini(R.introduced.length, "palabras nuevas") + "</div>";
+      mini("+" + R.xp, "puntos") + mini(R.correct + "/" + total, "aciertos") + mini(R.introduced.length, mode ? "frases nuevas" : "palabras nuevas") + "</div>";
     if (fin.bonus) html += '<p class="hint">+' + fin.bonus + " XP de bonus por no fallar ninguna.</p>";
     if (fin.streakInfo.changed) html += '<p class="hint">Racha: ' + S.streak.current + " día" + (S.streak.current === 1 ? "" : "s") + (fin.streakInfo.earnedFreeze ? ". Ganaste un protector de racha." : fin.streakInfo.usedFreeze ? ". Un protector salvó tu racha." : ".") + "</p>";
     if (regained) html += '<p class="hint">Recuperaste una vida.</p>';
@@ -527,12 +714,12 @@
     }
     if (badges.length) html += badges.map(b => '<div class="chest"><strong>Nuevo logro: ' + esc(b.name) + "</strong><span>" + esc(b.desc) + "</span></div>").join("");
     const goalLeft = Math.max(0, Number(S.settings.goalMin) * 60000 - d.ms);
-    html += '<div class="sum-actions"><button type="button" class="btn btn-play" id="sum-again">' + (goalLeft > 0 ? "Otra ronda (" + (Math.ceil(goalLeft / 60000) === 1 ? "falta 1 min" : "faltan " + Math.ceil(goalLeft / 60000) + " min") + ")" : "Otra ronda") + '</button><button type="button" class="btn btn-ghost" id="sum-home">Terminar por hoy</button></div>';
+    html += '<div class="sum-actions"><button type="button" class="btn btn-play" id="sum-again">' + (mode === "meet" ? "Otra reunión" : mode === "shadow" ? "Repetir otras 6" : goalLeft > 0 ? "Otra ronda (" + (Math.ceil(goalLeft / 60000) === 1 ? "falta 1 min" : "faltan " + Math.ceil(goalLeft / 60000) + " min") + ")" : "Otra ronda") + '</button><button type="button" class="btn btn-ghost" id="sum-home">Terminar por hoy</button></div>';
     $("summary").innerHTML = html;
     R = null;
     go("summary");
     if (leveled || badges.length) { sfx.level(); burst(); }
-    $("sum-again").addEventListener("click", startRound);
+    $("sum-again").addEventListener("click", () => (mode ? startPhraseGame(mode) : startRound()));
     $("sum-home").addEventListener("click", () => go("home"));
     const chest = $("chest");
     if (chest) chest.addEventListener("click", () => {
@@ -562,7 +749,7 @@
   // Pronunciar cualquier botón con data-say.
   document.addEventListener("click", ev => {
     const b = ev.target.closest("[data-say]");
-    if (b) speak(b.dataset.say);
+    if (b) speak(b.dataset.say, !!b.dataset.slow);
   });
 
   // Atajos de teclado: 1-4 para elegir, Enter para seguir.
@@ -697,7 +884,9 @@
       mini(S.streak.best + (S.streak.best === 1 ? " día" : " días"), "mejor racha"),
       mini(activeDays, "días jugados"),
       mini(S.stats.orderOk + S.stats.translateOk, "oraciones armadas"),
-      mini(S.stats.snakeBest + " pts", "récord en la viborita")
+      mini(S.stats.snakeBest + " pts", "récord en la viborita"),
+      mini((S.stats.phrasesIntro || 0) + "/" + PHRASES.length, "frases de reunión vistas"),
+      mini((S.stats.meetings || 0) + " · " + (S.stats.shadowOk || 0), "reuniones simuladas · frases repetidas")
     ].join("");
 
     // gráfico de barras: minutos de los últimos 14 días
@@ -887,6 +1076,9 @@
   }
   $("sn-pause").addEventListener("click", () => { if (!SN) return; if (SN.state.running) SN.pause(); else SN.start(); });
   $("btn-snake-home").addEventListener("click", () => go("snake"));
+  $("btn-meet-home").addEventListener("click", () => go("meet"));
+  $("btn-meet-start").addEventListener("click", () => startPhraseGame("meet"));
+  $("btn-shadow-start").addEventListener("click", () => startPhraseGame("shadow"));
   window.addEventListener("resize", () => { if (SN && current === "snake") SN.resize(); });
   [["set-tts", "tts"], ["set-sound", "sound"], ["set-calm", "calm"]].forEach(([id, k]) => {
     $(id).addEventListener("change", ev => { S.settings[k] = ev.target.checked; save(); applyCalm(); toast("Guardado"); });

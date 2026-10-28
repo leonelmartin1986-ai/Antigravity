@@ -403,3 +403,19 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 @media (min-width: 560px) {
   .options.two { grid-template-columns: 1fr 1fr; }
 }
+
+/* frases de reunión */
+.btn-meet { background: var(--ok-bg); color: var(--ink); min-height: 56px; }
+.btn-meet svg, .meet-games svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.btn-badge { margin-left: auto; font-size: 14px; font-weight: 700; color: var(--muted); }
+.meet-games { display: grid; gap: 6px; }
+.meet-games .hint { margin: 0 0 8px; }
+.meet-stage { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 15px; text-align: center; }
+.phrase-en { margin: 0; text-align: center; font: 600 clamp(26px, 8vw, 34px)/1.2 var(--f-display); text-wrap: balance; overflow-wrap: anywhere; }
+.shadow-ctl { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grade-row { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; margin-top: auto; }
+.grade-row .btn { min-height: 56px; font-size: 16px; padding: 8px; }
+#sh-mic svg { width: 22px; height: 22px; fill: currentColor; }
+.phrase-row .wr-w { font-size: 17px; white-space: normal; }
+.phrase-row .wr-es { white-space: normal; }
+.phrase-row .wr-rank { font-size: 13px; }

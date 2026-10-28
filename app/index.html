@@ -76,6 +76,12 @@
         <span>Viborita de letras</span>
       </button>
 
+      <button class="btn btn-meet" id="btn-meet-home" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <span>Mis frases de reunión</span>
+        <small class="btn-badge" id="v-meet-home">0/100</small>
+      </button>
+
       <article class="tip placement-banner" id="placement-banner" hidden>
         <p class="eyebrow">¿Ya sabés algo de inglés?</p>
         <p>Hacé la prueba de nivel (32 preguntas, unos 3 minutos). Las palabras que ya sabés se saltean y la app te sugiere una dificultad.</p>
@@ -143,6 +149,35 @@
         <div class="segments" id="pl-segments"></div>
       </div>
       <div class="card" id="pl-card"></div>
+    </section>
+
+    <!-- FRASES DE REUNIÓN -->
+    <section class="view" id="view-meet" data-view="meet" hidden>
+      <h2 class="view-title">Mis 100 frases de reunión</h2>
+      <p class="hint">Salen de tus transcripciones de Teams: lo que más decís al saludar, al arrancar, en la parte técnica y al cerrar. Las rondas diarias ya te traen 1 o 2 por vez.</p>
+      <p class="eyebrow" id="v-meet-sub"></p>
+      <div class="meet-games">
+        <button class="btn btn-play" id="btn-meet-start" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z"/></svg>
+          <span>Simulador de reunión</span>
+        </button>
+        <p class="hint">Una llamada en 6 momentos: saludo, inicio, 3 intervenciones técnicas y cierre. Elegís, armás o escribís la frase según tu dificultad.</p>
+        <button class="btn btn-snake" id="btn-shadow-start" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3"/></svg>
+          <span>Escuchar y repetir</span>
+        </button>
+        <p class="hint">La app dice la frase, vos la repetís en voz alta y contás cómo te salió. 6 frases, unos 2 minutos.</p>
+      </div>
+      <div class="boxes" id="meet-cats"></div>
+      <div class="filters" id="meet-filters" role="tablist">
+        <button type="button" class="chip on" data-filter="all">Todas</button>
+        <button type="button" class="chip" data-filter="hi">Saludo inicial</button>
+        <button type="button" class="chip" data-filter="open">Inicio</button>
+        <button type="button" class="chip" data-filter="tech">Técnicas</button>
+        <button type="button" class="chip" data-filter="bye">Saludo final</button>
+      </div>
+      <p class="hint">Tocá una frase para escucharla. El número es cuántas veces la dijiste en tus reuniones.</p>
+      <ol class="word-list" id="phrase-list"></ol>
     </section>
 
     <!-- PALABRAS -->
@@ -263,6 +298,7 @@
 <script src="js/words.js"></script>
 <script src="js/grammar.js"></script>
 <script src="js/words-work.js"></script>
+<script src="js/phrases.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/snake.js"></script>
 <script src="js/app.js"></script>
