@@ -51,6 +51,15 @@ La lista completa con formas y tiempos verbales está en [WORDS.md](WORDS.md).
 
 La lista completa está en [PHRASES.md](PHRASES.md).
 
+### Preposiciones
+
+- **Qué se eligió:** 21 reglas en cinco grupos. Tiempo: in/on/at, for/since, by/until, during, in/within, at the end/in the end, on time/in time. Lugar: in/on/at. Movimiento: to/into/from, arrive in/at y get to. Otros usos: by/with, for/to, about/of, per/via/through/between/among. Combinaciones de trabajo con on, for, to, with, in y of, más estados de proyecto (on hold, in progress, on track, by default). Y una regla para los verbos que van sin preposición (discuss, call, contact, attend, reach).
+- **Por qué estas:** son las que más usás en reuniones y en D365, y las que más fallan los hispanohablantes. En castellano «en», «de», «para» y «por» cubren lo que en inglés se reparte entre varias preposiciones. Además, algunos verbos llevan preposición en un idioma y no en el otro (discutir sobre → discuss; esperar → wait for).
+- **Oraciones con truco:** 122 oraciones de trabajo. En cada una, una de las opciones es el error típico de quien habla castellano (*depend of*, *discuss about*, *arrive to*, *consist in*, *married with*) y la otra es una preposición que no corresponde. En Avanzado, con la regla ya practicada, se muestra la oración con el error y hay que corregirla escribiendo.
+- **Por qué funciona:** intentar responder y equivocarse, seguido de la respuesta correcta, mejora el recuerdo posterior (Kornell, Hays y Bjork, 2009). En segundas lenguas, la corrección que explica la regla deja efectos más duraderos que la corrección sola (metaanálisis de Li, 2010). Por eso cada respuesta muestra la oración correcta en voz alta, su traducción y la clave de la regla; si te equivocás, la explicación completa.
+
+Las reglas, los ejemplos y todas las oraciones están en [PREPOSITIONS.md](PREPOSITIONS.md).
+
 ## 2. Qué funciona para aprender (y qué cambia con TDAH)
 
 | Hallazgo | Evidencia | Fuerza |
@@ -89,6 +98,7 @@ La lista completa está en [PHRASES.md](PHRASES.md).
 | Menos distracción | Una sola tarea por pantalla, letra Atkinson Hyperlegible (diseñada para leer fácil), modo calmado sin animaciones, atajos de teclado 1–4. |
 | Tus frases, en su contexto | Se recuerda mejor lo que es relevante para uno mismo y lo que se practica en el contexto en que se va a usar (especificidad de la codificación). El simulador de reunión recorre tus frases en el orden de una llamada: saludo, inicio, 3 intervenciones técnicas y cierre. Las frases tienen su propio repaso espaciado y cada ronda diaria suma 1 o 2 (como máximo 3 nuevas por día). |
 | Escuchar y repetir (shadowing) | Repetir en voz alta justo después de escuchar mejora la pronunciación y la fluidez (Hamada, 2016). La app dice la frase (también más lento), vos la repetís y elegís «Me salió bien», «Más o menos» o «Me trabé». Si el navegador tiene reconocimiento de voz, la app te escucha y lo evalúa sola. |
+| Preposiciones con truco | Cada regla entra con una tarjeta que explica el porqué, ejemplos con voz y la trampa típica tachada al lado de la forma correcta. Después aparecen en las rondas (hasta 2 por ronda y 2 reglas nuevas por día), con repaso espaciado por regla y una oración distinta cada vez. |
 | Registro del uso | Por palabra: veces vista, aciertos, caja, próximo repaso y aciertos por tiempo verbal. Por día: minutos, puntos, respuestas y palabras nuevas. Gráfico de 14 días y distribución por cajas. |
 
 ## Límites

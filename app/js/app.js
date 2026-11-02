@@ -6,13 +6,16 @@
   const BY_WORD = Object.fromEntries(WORDS.map(w => [w.w, w]));
   const PHRASES = window.PHRASES || [];
   const BY_PHRASE = Object.fromEntries(PHRASES.map(p => [p.id, p]));
+  const PREPS = window.PREPS || [];
+  const BY_PREP = Object.fromEntries(PREPS.map(r => [r.id, r]));
   const KEY = "wordbeat.v1";
   const $ = id => document.getElementById(id);
 
   const TYPE_ES = { v: "verbo", aux: "verbo auxiliar", pron: "pronombre", n: "sustantivo", adj: "adjetivo", adv: "adverbio", prep: "preposición", conj: "conjunción", det: "determinante", num: "número" };
   const BOX_ES = ["Nueva", "Caja 1 · mañana", "Caja 2 · 2 días", "Caja 3 · 4 días", "Caja 4 · 1 semana", "Caja 5 · 15 días", "Caja 6 · 1 mes", "Caja 7 · dominada"];
   const KIND_ES = { meaning: "¿Qué significa?", reverse: "¿Cómo se dice en inglés?", listen: "Escuchá y elegí", tense: "Completá con el tiempo verbal", formid: "¿Qué forma es?", cloze: "Completá la frase", spell: "Escribila en inglés", phrase: "Elegí el verbo conjugado", order: "Armá la oración", translate: "Traducí la oración",
-    pchoose: "¿Cómo lo decís en inglés?", plisten: "Escuchá: ¿qué significa?", porder: "Armá tu frase", ptype: "Escribí tu frase en inglés", pshadow: "Escuchá y repetí" };
+    pchoose: "¿Cómo lo decís en inglés?", plisten: "Escuchá: ¿qué significa?", porder: "Armá tu frase", ptype: "Escribí tu frase en inglés", pshadow: "Escuchá y repetí",
+    prepchoose: "Oración con truco", prepfix: "Encontrá la trampa y corregila" };
   const Gr = window.Grammar;
 
   const TIPS = [
@@ -38,6 +41,7 @@
     { t: "Producir oraciones, no solo reconocer", p: "Armar y escribir la oración completa obliga a recuperar la palabra y la gramática a la vez (efecto de generación). Es más difícil que elegir una opción, por eso aparece en las dificultades Intermedio y Avanzado.", a: "Ejercicios de ordenar fichas y de traducir escribiendo, con los 11 tiempos en afirmativa, negativa y pregunta." },
     { t: "Pausas activas con juego", p: "Un cambio de actividad corto y con movimiento ayuda a recuperar la atención sin dejar de practicar.", a: "La viborita repasa la ortografía de las palabras y sus tiempos verbales comiendo letras en orden." },
     { t: "Tus propias frases, en su contexto", p: "Se recuerda mejor lo que es relevante para uno mismo (efecto de autorreferencia) y lo que se practica en el mismo contexto en el que se va a usar (especificidad de la codificación, Tulving). El shadowing, repetir en voz alta justo después de escuchar, mejora la pronunciación y la fluidez al hablar (Hamada, 2016).", a: "Tus 100 frases salen de tus reuniones reales y se practican en el orden de una llamada: saludo, inicio, parte técnica y cierre. En «Escuchar y repetir» las decís en voz alta." },
+    { t: "Aprender del error con explicación", p: "Equivocarse en un intento y recibir enseguida la respuesta correcta mejora el recuerdo posterior, más que solo estudiar la respuesta (Kornell, Hays y Bjork, 2009). En segundas lenguas, la corrección que explica la regla (feedback metalingüístico) tiene efectos más duraderos que la corrección sola (metaanálisis de Li, 2010).", a: "Las oraciones con truco ponen como opción el error típico de quien habla castellano (depend of, discuss about). Al responder ves por qué es así y en Avanzado corregís la oración escribiendo." },
     { t: "Variedad para sostener la atención", p: "Alternar tipos de tarea (práctica intercalada) mejora la retención y reduce el aburrimiento.", a: "Siete tipos de pregunta: significado, al revés, escuchar, tiempos verbales, forma verbal, completar frases y escribir." }
   ];
 
@@ -275,6 +279,7 @@
     if (!st) return endRound();
     R.waiting = false;
     if (st.p) return renderPhraseStep(st);
+    if (st.r) return renderPrepStep(st);
     const e = BY_WORD[st.w];
     if (st.kind === "intro") return renderIntro(e);
 
@@ -380,6 +385,60 @@
     const submit = () => { if (inp.value.trim()) answer(inp.value, inp); };
     $("tr-go").addEventListener("click", submit);
     inp.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); submit(); } });
+  }
+
+  /* ---------- preposiciones ---------- */
+  const prepLabel = x => (x === "—" ? "(sin preposición)" : x);
+
+  function renderPrepStep(st) {
+    const r = BY_PREP[st.r];
+    if (st.kind === "prepintro") return renderPrepIntro(r);
+    let body = '<p class="q-type"><span>' + esc(KIND_ES[st.kind]) + "</span><span>" + esc(r.g) + "</span></p>";
+    if (st.kind === "prepchoose") {
+      body += '<p class="q-sentence">' + blankify(st.sentence) + "</p>";
+      body += '<p class="hint" style="text-align:center">' + esc(st.es) + "</p>";
+      body += '<div class="options">' + st.options.map((o, i) => '<button type="button" class="opt" data-opt="' + esc(o) + '"><span class="opt-key">' + (i + 1) + "</span>" + esc(prepLabel(o)) + "</button>").join("") + "</div>";
+    } else {
+      body += '<p class="hint" style="text-align:center">Esta oración tiene un error de preposición. Escribila bien.</p>';
+      body += '<p class="q-sentence prep-wrong">' + esc(st.wrong) + "</p>";
+      body += '<p class="hint" style="text-align:center">' + esc(st.es) + "</p>";
+      body += '<textarea class="translate-in" id="tr-in" rows="2" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="Escribí la oración corregida" aria-label="Oración corregida"></textarea>';
+      body += '<div class="order-row"><button type="button" class="btn btn-ghost" id="tr-hint">Pista</button><button type="button" class="btn btn-play" id="tr-go">Comprobar</button></div>';
+    }
+    cardEnter(body);
+    document.querySelectorAll("#card .opt").forEach(b => b.addEventListener("click", () => answer(b.dataset.opt, b)));
+    if (st.kind === "prepfix") {
+      const inp = $("tr-in");
+      inp.value = st.wrong;
+      setTimeout(() => inp.focus(), 50);
+      // Pista: marca dónde está la trampa con un hueco.
+      $("tr-hint").addEventListener("click", () => { inp.value = st.sentence; st.usedHint = true; });
+      const submit = () => { if (inp.value.trim()) answer(inp.value, inp); };
+      $("tr-go").addEventListener("click", submit);
+      inp.addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); submit(); } });
+    }
+  }
+
+  // Tarjeta de regla nueva: el porqué, ejemplos con voz y la trampa típica.
+  function renderPrepIntro(r) {
+    const trap = r.items[0];
+    let body = '<p class="q-type"><span>Preposiciones · regla nueva</span><span>' + esc(r.g) + "</span></p>";
+    body += '<p class="prep-title">' + esc(r.p) + "</p>";
+    body += '<p class="intro-es">' + esc(r.t) + "</p>";
+    body += '<p class="prep-key">' + esc(r.k) + "</p>";
+    body += '<div class="memo"><b>Por qué</b>' + esc(r.why) + "</div>";
+    body += '<div class="prep-ex">' + r.ex.map(([en, es]) => '<p><button type="button" class="speak" data-say="' + esc(en) + '">' + ICON_SPEAK + esc(en) + "</button><span>" + esc(es) + "</span></p>").join("") + "</div>";
+    body += '<p class="prep-trap"><span class="bad">✗ ' + esc(E.fillPrep(trap.s, trap.trap)) + '</span><span class="good">✓ ' + esc(E.fillPrep(trap.s, trap.a)) + "</span></p>";
+    body += '<div class="order-row"><span></span><button type="button" class="btn btn-play" id="intro-ok">¡La tengo!</button></div>';
+    cardEnter(body);
+    $("intro-ok").addEventListener("click", () => {
+      const xp = E.introducePrep(S, r.id, Date.now());
+      R.xp += xp;
+      R.introduced.push(r.id);
+      R.results[R.i] = "intro";
+      save();
+      next();
+    });
   }
 
   /* ---------- tus frases de reunión ---------- */
@@ -615,7 +674,8 @@
     R.waiting = true;
     lastActivity = Date.now();
     const st = R.steps[R.i];
-    const e = st.p ? null : BY_WORD[st.w];
+    const e = st.p || st.r ? null : BY_WORD[st.w];
+    const rule = st.r ? BY_PREP[st.r] : null;
     const ph = st.p ? BY_PHRASE[st.p] : null;
     const ok = E.checkAnswer(st, given);
     const res = E.applyAnswer(S, st, ok, Date.now(), R.combo, R.practice);
@@ -631,7 +691,7 @@
       if (E.checkAnswer(st, b.dataset.opt)) b.classList.add("ok");
       else if (b === el) b.classList.add("ko");
     });
-    if (st.kind === "spell" || st.kind === "translate" || st.kind === "ptype") { el.classList.add(ok ? "ok" : "ko"); el.disabled = true; }
+    if (st.kind === "spell" || st.kind === "translate" || st.kind === "ptype" || st.kind === "prepfix") { el.classList.add(ok ? "ok" : "ko"); el.disabled = true; }
     if (st.kind === "order" || st.kind === "porder") el.classList.add(ok ? "ok" : "ko");
     if (res.lifeLost) popStat("stat-lives");
     if (xp) popStat("stat-xp");
@@ -640,9 +700,14 @@
 
     // feedback: en errores se repasa el ancla (volver a codificar es lo que más sirve)
     const fb = $("feedback");
-    const shown = ["order", "translate", "porder", "ptype"].includes(st.kind) ? st.full : st.answer;
+    const shown = ["order", "translate", "porder", "ptype", "prepfix"].includes(st.kind) ? st.full : st.kind === "prepchoose" ? prepLabel(st.answer) : st.answer;
     let html = '<p class="fb-title">' + (ok ? pickPraise() : "Casi. Era «" + esc(shown) + "»") + (xp ? ' <span class="fb-xp">+' + xp + " XP</span>" : "") + "</p>";
-    if (ph) {
+    if (rule) {
+      html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(st.full) + '">' + ICON_SPEAK + esc(st.full) + "</button></p>";
+      html += '<p class="fb-es">' + esc(st.es) + "</p>";
+      if (!ok && st.kind === "prepchoose" && st.trap.toLowerCase() === String(given).trim().toLowerCase()) html += '<p class="fb-es">Caíste en la trampa típica: «' + esc(st.wrong) + "».</p>";
+      html += '<div class="memo"><b>' + (ok ? "Por qué" : "Por qué (" + esc(rule.p) + ")") + "</b>" + esc(ok ? rule.k : rule.why) + "</div>";
+    } else if (ph) {
       html += '<p class="fb-body"><button type="button" class="speak" data-say="' + esc(ph.en) + '">' + ICON_SPEAK + esc(ph.en) + "</button></p>";
       html += '<p class="fb-es">«' + esc(ph.es) + "» · " + esc(CAT_ES[ph.cat]) + "</p>";
     } else if (st.kind === "phrase" || st.kind === "order" || st.kind === "translate") {
@@ -657,19 +722,20 @@
     } else {
       html += '<p class="fb-body"><strong>' + esc(e.w) + "</strong> = " + esc(e.es) + "</p>";
     }
-    if (!ok && e) html += '<div class="memo"><b>Ancla</b>' + esc(e.mn) + "</div>";
+    if (!ok && e && !rule) html += '<div class="memo"><b>Ancla</b>' + esc(e.mn) + "</div>";
     if (!ok && ph) html += '<div class="memo"><b>Para fijarla</b>Escuchala y decila en voz alta dos veces antes de seguir.</div>';
     html += '<button type="button" class="btn ' + (ok ? "btn-ok" : "btn-play") + ' btn-wide" id="fb-next">Seguir</button>';
     fb.className = "feedback " + (ok ? "ok" : "ko");
     fb.innerHTML = html;
     fb.hidden = false;
     if (ph) { if (S.settings.tts) speak(ph.en); }
+    else if (rule) { if (S.settings.tts) speak(st.full); }
     else if (S.settings.tts && ["tense", "phrase", "order", "translate"].includes(st.kind)) speak(st.full);
     else if (S.settings.tts && !ok) speak(e.w);
     $("fb-next").addEventListener("click", next);
     if (!ok) fb.scrollIntoView({ behavior: "smooth", block: "nearest" });
     save();
-    if (ok) R.autoNext = setTimeout(next, ph || ["order", "translate", "phrase"].includes(st.kind) ? 2600 : st.kind === "tense" ? 1900 : 1100);
+    if (ok) R.autoNext = setTimeout(next, rule ? 3600 : ph || ["order", "translate", "phrase"].includes(st.kind) ? 2600 : st.kind === "tense" ? 1900 : 1100);
   }
 
   const PRAISE = ["¡Bien!", "¡Exacto!", "¡Eso es!", "¡Genial!", "¡Perfecto!", "¡Muy bien!"];
@@ -886,7 +952,8 @@
       mini(S.stats.orderOk + S.stats.translateOk, "oraciones armadas"),
       mini(S.stats.snakeBest + " pts", "récord en la viborita"),
       mini((S.stats.phrasesIntro || 0) + "/" + PHRASES.length, "frases de reunión vistas"),
-      mini((S.stats.meetings || 0) + " · " + (S.stats.shadowOk || 0), "reuniones simuladas · frases repetidas")
+      mini((S.stats.meetings || 0) + " · " + (S.stats.shadowOk || 0), "reuniones simuladas · frases repetidas"),
+      mini((S.stats.prepsIntro || 0) + "/" + PREPS.length + " · " + (S.stats.prepOk || 0), "reglas de preposiciones · trampas resueltas")
     ].join("");
 
     // gráfico de barras: minutos de los últimos 14 días

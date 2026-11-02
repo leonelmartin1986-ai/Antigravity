@@ -279,3 +279,62 @@ test("ronda diaria: suma tus frases con su cupo y repaso espaciado", () => {
   E.applyPhrase(s, { kind: "pchoose", p: id }, false, T0, 0, false);
   assert.strictEqual(s.lives, E.MAX_LIVES - 1);
 });
+
+const PREPS = require("../app/js/preps.js");
+
+test("preposiciones: 21 reglas con porqué, ejemplos y oraciones con truco bien armadas", () => {
+  assert.strictEqual(PREPS.length, 21);
+  let n = 0;
+  PREPS.forEach(r => {
+    assert.ok(r.why.length > 80 && r.k && r.ex.length >= 2, r.id);
+    r.items.forEach(it => {
+      n++;
+      assert.strictEqual(it.s.split("___").length, 2, it.s);
+      assert.strictEqual(new Set([it.a, it.trap, it.extra]).size, 3, it.s);
+      const full = E.fillPrep(it.s, it.a);
+      assert.ok(!/___|\s\s|\s[.?!,]/.test(full), full);
+      assert.notStrictEqual(full, E.fillPrep(it.s, it.trap));
+    });
+  });
+  assert.ok(n >= 120);
+  assert.strictEqual(E.fillPrep("Let's discuss ___ the scope.", "—"), "Let's discuss the scope.");
+});
+
+test("preposiciones: elegir la correcta y corregir escribiendo", () => {
+  const s = E.newState(T0);
+  const rnd = E.makeRng(7);
+  PREPS.forEach(r => {
+    const q = E.prepQuestion(s, r, rnd, 0, "prepchoose");
+    assert.ok(q.options.includes(q.answer) && q.options.includes(q.trap));
+    assert.ok(E.checkAnswer(q, q.answer) && !E.checkAnswer(q, q.trap));
+    const f = E.prepQuestion(s, r, rnd, 3, "prepfix");
+    assert.ok(E.checkAnswer(f, f.full.toLowerCase()));
+    assert.ok(!E.checkAnswer(f, f.wrong), "la oración con trampa no vale: " + f.wrong);
+  });
+  const dep = PREPS.find(r => r.id === "c-on");
+  const q = { kind: "prepfix", r: "c-on", full: "It depends on the customer." };
+  assert.ok(E.checkAnswer(q, "it depends on the customer"));
+  assert.ok(!E.checkAnswer(q, "It depends of the customer."));
+  assert.ok(dep);
+});
+
+test("preposiciones en la ronda: regla nueva con su tarjeta, cupo diario y repaso espaciado", () => {
+  const s = E.newState(T0);
+  const steps = E.buildRound(s, WORDS, T0, E.makeRng(2));
+  const intro = steps.find(x => x.kind === "prepintro");
+  assert.ok(intro);
+  E.introducePrep(s, intro.r, T0);
+  E.introducePrep(s, "c-on", T0);
+  const next = E.buildRound(s, WORDS, T0, E.makeRng(3)).filter(x => x.r);
+  assert.ok(next.length >= 1 && next.every(x => x.kind !== "prepintro"), "cupo de 2 reglas nuevas por día");
+  const q = E.prepQuestion(s, PREPS.find(r => r.id === "c-on"), E.makeRng(1), 0, "prepchoose");
+  E.applyAnswer(s, q, true, T0, 0, false);
+  assert.strictEqual(s.preps["c-on"].box, 1);
+  assert.strictEqual(s.stats.prepOk, 1);
+  E.applyAnswer(s, q, false, T0, 0, false);
+  assert.strictEqual(s.lives, E.MAX_LIVES - 1);
+  s.settings.level = 3;
+  const kinds = new Set();
+  for (let i = 0; i < 40; i++) kinds.add(E.prepQuestion(s, PREPS[0], E.makeRng(i), 3).kind);
+  assert.deepStrictEqual([...kinds].sort(), ["prepchoose", "prepfix"]);
+});

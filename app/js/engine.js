@@ -61,6 +61,10 @@
     { id: "shadow25", name: "Eco", desc: "25 frases repetidas en voz alta.", test: s => s.stats.shadowOk >= 25 },
     { id: "phrases100", name: "Mis 100 frases", desc: "Viste tus 100 frases de reunión.", test: s => s.stats.phrasesIntro >= 100 },
     { id: "phrases25", name: "Hablo como en Teams", desc: "25 frases aprendidas (caja 4+).", test: s => countPhrasesLearned(s) >= 25 },
+    { id: "prep1", name: "Primera regla", desc: "Aprendiste tu primera regla de preposiciones.", test: s => s.stats.prepsIntro >= 1 },
+    { id: "prepall", name: "Todas las reglas", desc: "Viste las 21 reglas de preposiciones.", test: s => s.stats.prepsIntro >= 21 },
+    { id: "prep50", name: "No caigo en la trampa", desc: "50 oraciones con truco bien resueltas.", test: s => s.stats.prepOk >= 50 },
+    { id: "prepfix10", name: "Corrector", desc: "10 oraciones con trampa corregidas escribiendo.", test: s => s.stats.prepFixOk >= 10 },
     { id: "advanced", name: "Modo avanzado", desc: "Una ronda completa en dificultad Avanzado.", test: s => s.stats.advancedRounds >= 1 }
   ];
 
@@ -121,12 +125,14 @@
       livesTs: now,
       words: {},
       phrases: {},
+      preps: {},
       streak: { current: 0, best: 0, last: null, freezes: 0 },
       days: {},
       badges: {},
       stats: { introduced: 0, answers: 0, correct: 0, bestCombo: 0, perfectRounds: 0, tenseOk: 0, spellOk: 0, goalsMet: 0,
         orderOk: 0, translateOk: 0, snakeWords: 0, snakeBest: 0, snakeGames: 0, advancedRounds: 0, known: 0, placementDone: 0,
-        phrasesIntro: 0, phraseOk: 0, shadowOk: 0, meetings: 0, shadowSessions: 0 },
+        phrasesIntro: 0, phraseOk: 0, shadowOk: 0, meetings: 0, shadowSessions: 0,
+        prepsIntro: 0, prepOk: 0, prepFixOk: 0 },
       settings: { newPerDay: 5, goalMin: 10, rate: 0.85, sound: true, calm: false, tts: true, level: 1 }
     };
   }
@@ -140,6 +146,7 @@
     out.settings = Object.assign({}, base.settings, s.settings);
     out.words = s.words || {};
     out.phrases = s.phrases || {};
+    out.preps = s.preps || {};
     out.days = s.days || {};
     out.badges = s.badges || {};
     return out;
@@ -152,7 +159,7 @@
 
   function today(s, now) {
     const k = dayKey(now);
-    if (!s.days[k]) s.days[k] = { ms: 0, xp: 0, answers: 0, correct: 0, newWords: 0, newPhrases: 0, rounds: 0, goal: false };
+    if (!s.days[k]) s.days[k] = { ms: 0, xp: 0, answers: 0, correct: 0, newWords: 0, newPhrases: 0, newPreps: 0, rounds: 0, goal: false };
     return s.days[k];
   }
 
@@ -273,6 +280,8 @@
     });
     // Tus frases de reunión: hasta 2 por ronda, con su propio repaso espaciado.
     if (opts.phrases !== false) phraseSteps(s, allPhrases(), now, rnd, 2).forEach(x => steps.push(x));
+    // Preposiciones: hasta 2 oraciones con truco por ronda, con su propio repaso espaciado.
+    if (opts.preps !== false) prepSteps(s, allPreps(), now, rnd, 2).forEach(x => steps.push(x));
     // Segunda exposición de las nuevas al final de la ronda (espaciado dentro de la sesión).
     fresh.forEach(e => steps.push(makeQuestion(s, e, words, rnd, 1)));
     return steps.filter(Boolean);
@@ -485,6 +494,7 @@
 
   function checkAnswer(q, given) {
     if (q.p) return checkPhrase(q, given);
+    if (q.r) return checkPrep(q, given);
     if (q.kind === "translate") return G.checkSentence(q.target, given, wordFor(q.w));
     if (q.kind === "order") return G.normSentence(given) === G.normSentence(q.answer);
     return normalize(given) === normalize(q.answer);
@@ -520,6 +530,7 @@
    */
   function applyAnswer(s, q, correct, now, combo, practice) {
     if (q.p) return applyPhrase(s, q, correct, now, combo, practice);
+    if (q.r) return applyPrep(s, q, correct, now, combo, practice);
     const ws = wordState(s, q.w);
     const d = today(s, now);
     ws.seen++;
@@ -803,35 +814,31 @@
   }
 
   /*
-   * Resultado de una frase. grade "half" = «más o menos» en escuchar y repetir:
-   * cuenta como acierto pero no sube de caja.
+   * Repaso espaciado común a frases y preposiciones: acierto sube de caja (si ya venció),
+   * error baja a la mitad y vuelve mañana. grade "half" cuenta como acierto sin subir de caja.
    */
-  function applyPhrase(s, q, correct, now, combo, practice, grade) {
-    const ps = phraseState(s, q.p);
+  function applyItem(s, st, correct, now, combo, practice, base, grade) {
     const d = today(s, now);
-    ps.seen++;
-    ps.last = now;
+    st.seen++;
+    st.last = now;
     s.stats.answers++;
     d.answers++;
     let xp = 0, lifeLost = false;
     if (correct) {
-      ps.ok++;
+      st.ok++;
       s.stats.correct++;
       d.correct++;
-      s.stats.phraseOk++;
-      if (q.kind === "pshadow") { ps.shadow++; s.stats.shadowOk++; }
-      if (grade !== "half" && ps.due <= now) {
-        ps.box = Math.min(MAX_BOX, ps.box + 1);
-        ps.due = startOfDay(now) + INTERVALS[ps.box] * DAY;
+      if (grade !== "half" && st.due <= now) {
+        st.box = Math.min(MAX_BOX, st.box + 1);
+        st.due = startOfDay(now) + INTERVALS[st.box] * DAY;
       }
-      const base = { pchoose: 10, plisten: 12, porder: 16, ptype: 25, pshadow: 14 }[q.kind] || 10;
       const mult = (LEVELS[s.settings.level] || LEVELS[1]).xp;
       xp = Math.round((base + Math.min(10, combo * 2)) * mult * (grade === "half" ? 0.5 : 1));
       s.stats.bestCombo = Math.max(s.stats.bestCombo, combo + 1);
     } else {
-      ps.ko++;
-      ps.box = Math.max(ps.box > 0 ? 1 : 0, Math.floor(ps.box / 2));
-      ps.due = startOfDay(now) + DAY;
+      st.ko++;
+      st.box = Math.max(st.box > 0 ? 1 : 0, Math.floor(st.box / 2));
+      st.due = startOfDay(now) + DAY;
       if (!practice && s.lives > 0) {
         if (s.lives === MAX_LIVES) s.livesTs = now;
         s.lives--;
@@ -841,6 +848,17 @@
     s.xp += xp;
     d.xp += xp;
     return { xp, lifeLost };
+  }
+
+  /* Resultado de una frase. grade "half" = «más o menos» en escuchar y repetir. */
+  function applyPhrase(s, q, correct, now, combo, practice, grade) {
+    const ps = phraseState(s, q.p);
+    if (correct) {
+      s.stats.phraseOk++;
+      if (q.kind === "pshadow") { ps.shadow++; s.stats.shadowOk++; }
+    }
+    const base = { pchoose: 10, plisten: 12, porder: 16, ptype: 25, pshadow: 14 }[q.kind] || 10;
+    return applyItem(s, ps, correct, now, combo, practice, base, grade);
   }
 
   // En cada ronda diaria: hasta 2 frases (primero las vencidas; si no hay, una nueva con su tarjeta).
@@ -915,6 +933,94 @@
     return Object.values(s.phrases || {}).filter(x => x.box >= LEARNED_BOX).length;
   }
 
+  /* ---------- preposiciones ---------- */
+
+  const PREP_NEW_PER_DAY = 2;
+  const NONE = "—";
+
+  let PREP_LIST = null;
+  function allPreps() {
+    if (!PREP_LIST) PREP_LIST = (typeof module !== "undefined" && module.exports ? require("./preps.js") : root.PREPS) || [];
+    return PREP_LIST;
+  }
+
+  function prepState(s, id) {
+    if (!s.preps) s.preps = {};
+    if (!s.preps[id]) s.preps[id] = { box: 0, due: 0, seen: 0, ok: 0, ko: 0, last: 0, intro: 0 };
+    return s.preps[id];
+  }
+
+  function introducePrep(s, id, now) {
+    const st = prepState(s, id);
+    if (st.intro) return 0;
+    st.intro = now;
+    st.due = now;
+    s.stats.prepsIntro++;
+    const d = today(s, now);
+    d.newPreps = (d.newPreps || 0) + 1;
+    s.xp += 5;
+    d.xp += 5;
+    return 5;
+  }
+
+  // Arma la oración completa con una preposición (o sin ninguna si es «—»).
+  function fillPrep(sentence, prep) {
+    const out = prep === NONE ? sentence.replace(/\s*___\s*/, " ") : sentence.replace("___", prep);
+    return out.replace(/^\s+/, "").replace(/\s+([?.!,])/g, "$1").replace(/\s{2,}/g, " ");
+  }
+
+  /*
+   * Oración con truco: una de las opciones es el error típico de quien habla castellano.
+   * En Avanzado, con la regla ya practicada, se muestra la oración con la trampa y hay que corregirla escribiendo.
+   */
+  function prepQuestion(s, rule, rnd, box, forced) {
+    const it = pick(rule.items, rnd);
+    let kind = forced;
+    if (!kind) kind = level(s) >= 3 && box >= 2 && rnd() < 0.5 ? "prepfix" : "prepchoose";
+    const q = {
+      kind, r: rule.id, item: it.id, group: rule.g, title: rule.t, key: rule.k,
+      sentence: it.s, es: it.es, answer: it.a, trap: it.trap,
+      full: fillPrep(it.s, it.a), wrong: fillPrep(it.s, it.trap)
+    };
+    if (kind === "prepchoose") q.options = shuffle([it.a, it.trap, it.extra], rnd);
+    return q;
+  }
+
+  function checkPrep(q, given) {
+    if (q.kind === "prepfix") return G.normSentence(given) === G.normSentence(q.full);
+    return normalize(given) === normalize(q.answer);
+  }
+
+  function applyPrep(s, q, correct, now, combo, practice) {
+    if (correct) {
+      s.stats.prepOk++;
+      if (q.kind === "prepfix") s.stats.prepFixOk++;
+    }
+    return applyItem(s, prepState(s, q.r), correct, now, combo, practice, q.kind === "prepfix" ? 25 : 12);
+  }
+
+  /*
+   * En cada ronda: hasta 2 preguntas de preposiciones. Primero las reglas vencidas; si no hay,
+   * una regla nueva con su tarjeta (máximo 2 por día); si tampoco, práctica de la regla más floja.
+   */
+  function prepSteps(s, rules, now, rnd, max) {
+    const ps = s.preps || {};
+    const seen = rules.filter(r => ps[r.id] && ps[r.id].intro);
+    const due = seen.filter(r => ps[r.id].due <= now).sort((a, b) => ps[a.id].due - ps[b.id].due).slice(0, max);
+    const steps = due.map(r => prepQuestion(s, r, rnd, ps[r.id].box));
+    if (steps.length >= max) return steps;
+    const fresh = rules.find(r => !(ps[r.id] && ps[r.id].intro));
+    if (fresh && (today(s, now).newPreps || 0) < PREP_NEW_PER_DAY) {
+      steps.push({ kind: "prepintro", r: fresh.id });
+      steps.push(prepQuestion(s, fresh, rnd, 0, "prepchoose"));
+      return steps;
+    }
+    const weak = seen.filter(r => !due.includes(r))
+      .sort((a, b) => ps[a.id].box - ps[b.id].box || ps[a.id].last - ps[b.id].last)[0];
+    if (weak) steps.push(prepQuestion(s, weak, rnd, ps[weak.id].box));
+    return steps;
+  }
+
   const Engine = {
     BANDS, PER_BAND, DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS, LEVELS,
     markKnown, placementQuiz, applyPlacement, applySnake, pick,
@@ -924,6 +1030,7 @@
     dueWords, newWordsAvailable, buildRound, makeQuestion, buildKind, conj, conjugationTable, availableTenses,
     PHRASE_CATS, PHRASE_NEW_PER_DAY, MEETING_PLAN, allPhrases, phraseState, duePhrases, newPhrasesAvailable, introducePhrase,
     meetQuestion, phraseMatch, checkPhrase, applyPhrase, phraseSteps, buildMeeting, buildShadow, finishPhraseGame, countPhrasesLearned,
+    PREP_NEW_PER_DAY, allPreps, prepState, introducePrep, fillPrep, prepQuestion, checkPrep, applyPrep, prepSteps,
     checkAnswer, introduce, applyAnswer, finishRound, openChest, addTime, newBadges, lastDays
   };
 

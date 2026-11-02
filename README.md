@@ -9,8 +9,9 @@ Juego para el teléfono que enseña **1000 palabras en inglés**: las 200 más u
 - **Tres dificultades:** Básico, Intermedio y Avanzado. Cambian los tiempos, los tipos de ejercicio y cuántos puntos da cada acierto.
 - **Prueba de nivel y «Ya la sé»:** saltea las palabras que ya conocés. Hasta 20 palabras nuevas por día.
 - **Mis 100 frases de reunión:** las frases que más usás en tus reuniones de Teams (saludo inicial, inicio de conversación, consultas técnicas y saludo final), traducidas al inglés de reunión. Se practican en un **simulador de reunión**, en **escuchar y repetir** (decirlas en voz alta) y dentro de cada ronda diaria. Lista completa en [PHRASES.md](PHRASES.md).
+- **Preposiciones con truco:** 21 reglas (tiempo, lugar, movimiento, combinaciones de trabajo como *depend on* o *responsible for* y verbos que no llevan preposición), cada una con el porqué y ejemplos. En la ronda aparecen oraciones con truco donde una opción es el error típico de quien habla castellano; en Avanzado corregís la oración escribiendo. Lista completa en [PREPOSITIONS.md](PREPOSITIONS.md).
 - **Viborita de letras:** comé las letras en orden para formar la palabra. Las consignas rotan entre castellano → inglés, formas verbales y oraciones para completar.
-- **Juego:** puntos, combos, 5 vidas que se recargan, racha diaria con protectores, niveles, 29 logros y un cofre sorpresa al cumplir la meta del día.
+- **Juego:** puntos, combos, 5 vidas que se recargan, racha diaria con protectores, niveles, 33 logros y un cofre sorpresa al cumplir la meta del día.
 - **Registro:** minutos por día, aciertos por palabra y por tiempo verbal, caja de cada palabra y próximo repaso.
 - **Pensada para TDAH:** rondas de 2 minutos, una sola tarea por pantalla, feedback inmediato y nunca te bloquea (sin vidas pasás a práctica libre).
 - Pronuncia en voz alta, funciona sin internet y se instala como una app. Tu progreso queda guardado en el teléfono.
@@ -51,6 +52,7 @@ app/                  la app (se publica tal cual)
   js/words.js         las 200 palabras básicas: traducción, pronunciación, formas, mnemotecnia y ejemplos
   js/words-work.js    las 800 palabras de trabajo (reuniones + negocios) en formato compacto
   js/phrases.js       tus 100 frases de reunión con su traducción
+  js/preps.js         21 reglas de preposiciones con su porqué y 122 oraciones con truco
   js/grammar.js       11 tiempos en inglés (afirmativa, negativa, pregunta) y su traducción al castellano
   js/engine.js        repaso espaciado, preguntas por dificultad, puntos, vidas, racha y logros (sin DOM)
   js/snake.js         juego de la viborita de letras
@@ -63,6 +65,7 @@ tools/                generador de WORDS.md y de la versión de un solo archivo
 RESEARCH.md           de dónde salen las palabras y por qué funciona el método
 WORDS.md              lista de las 1000 palabras con formas y tiempos verbales
 PHRASES.md            tus 100 frases de reunión por categoría
+PREPOSITIONS.md       reglas de preposiciones, ejemplos y oraciones con truco
 ```
 
 ## Desarrollo
@@ -74,7 +77,8 @@ npm test               # tests del motor
 npm start              # sirve la app en http://localhost:8080
 npm run wordlist       # regenera WORDS.md después de editar app/js/words.js
 npm run phrases        # regenera PHRASES.md después de editar app/js/phrases.js
+npm run preps          # regenera PREPOSITIONS.md después de editar app/js/preps.js
 npm run build:single   # genera dist/word-beat.html, todo en un archivo
 ```
 
-Si cambiás archivos de `app/`, subí la versión de la caché en `app/sw.js` (por ejemplo, `wordbeat-v4` → `wordbeat-v5`) para que los teléfonos descarguen la versión nueva.
+Si cambiás archivos de `app/`, subí la versión de la caché en `app/sw.js` (por ejemplo, `wordbeat-v5` → `wordbeat-v6`) para que los teléfonos descarguen la versión nueva.

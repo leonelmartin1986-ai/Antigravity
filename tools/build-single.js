@@ -16,6 +16,7 @@ const out = [
   "<script>\n" + read("js/grammar.js") + "\n</script>",
   "<script>\n" + read("js/words-work.js") + "\n</script>",
   "<script>\n" + read("js/phrases.js") + "\n</script>",
+  "<script>\n" + read("js/preps.js") + "\n</script>",
   "<script>\n" + read("js/engine.js") + "\n</script>",
   "<script>\n" + read("js/snake.js") + "\n</script>",
   "<script>\n" + read("js/app.js") + "\n</script>"

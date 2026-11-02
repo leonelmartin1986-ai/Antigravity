@@ -419,3 +419,15 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .phrase-row .wr-w { font-size: 17px; white-space: normal; }
 .phrase-row .wr-es { white-space: normal; }
 .phrase-row .wr-rank { font-size: 13px; }
+
+/* preposiciones */
+.prep-title { margin: 0; text-align: center; font: 600 clamp(28px, 9vw, 38px)/1.15 var(--f-display); color: var(--ink); text-wrap: balance; }
+.prep-key { margin: 0; text-align: center; font-weight: 700; text-wrap: balance; }
+.prep-ex { display: grid; gap: 6px; }
+.prep-ex p { margin: 0; display: grid; gap: 2px; }
+.prep-ex .speak { justify-self: start; text-align: left; padding: 6px 12px; font-size: 16px; }
+.prep-ex span { color: var(--muted); font-size: 15px; padding-left: 12px; }
+.prep-trap { margin: 0; display: grid; gap: 6px; font-weight: 700; }
+.prep-trap .bad { padding: 8px 12px; border-radius: var(--r-sm); background: var(--ko-bg); color: var(--ko); text-decoration: line-through; text-decoration-thickness: 2px; }
+.prep-trap .good { padding: 8px 12px; border-radius: var(--r-sm); background: var(--ok-bg); color: var(--ok); }
+.q-sentence.prep-wrong { text-decoration: underline wavy var(--ko); text-underline-offset: 6px; }
