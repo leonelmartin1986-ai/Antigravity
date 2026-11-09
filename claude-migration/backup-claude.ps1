@@ -52,10 +52,12 @@ if ($NoHistory) { $exclude += 'projects' }
 if (Test-Path -LiteralPath $cdir) {
   Get-ChildItem -LiteralPath $cdir -Force | ForEach-Object {
     if ($exclude -contains $_.Name -or $_.Name -like '*.lock') { Write-Log "  - excluido: $($_.Name)"; return }
-    $failed += (Copy-Resilient $_.FullName $home2 $robolog)
+    # plugins\cache y plugins\marketplaces son copias descargadas (Claude las vuelve a bajar):
+    # no se copian porque pesan, tienen rutas largas y dan falsos positivos de secretos.
+    $xd = @((Join-Path $cdir 'plugins\cache'), (Join-Path $cdir 'plugins\marketplaces'))
+    $failed += (Copy-Resilient $_.FullName $home2 $robolog $xd)
   }
-  $pc = Join-Path $home2 'plugins\cache'
-  if (Test-Path -LiteralPath $pc) { Remove-Item -LiteralPath $pc -Recurse -Force }
+  if (Test-Path -LiteralPath (Join-Path $cdir 'plugins\marketplaces')) { Write-Log '  - excluido: plugins\cache, plugins\marketplaces (se re-descargan)' }
   Get-ChildItem -LiteralPath $home2 -Recurse -Force -Filter '.in_use' -ErrorAction SilentlyContinue |
     Sort-Object { $_.FullName.Length } -Descending |
     ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
@@ -88,10 +90,13 @@ if (Test-Path -LiteralPath $cjson) {
 # --- 3. Claude Desktop / Cowork ----------------------------------------------------
 $skipRx = '\\(Cache|Code Cache|GPUCache|IndexedDB|Local Storage|Session Storage|blob_storage|Crashpad|node_modules)\\'
 $found = @()
+$relSeen = @()
+$map = New-Object System.Collections.Generic.List[string]
+$k = 0
 $i = 0
 foreach ($a in $apps) {
   $i++
-  $tgt = Join-Path $desk "app$i"
+  $tgt = Join-Path $desk "a$i"
   New-Item -ItemType Directory -Path $tgt -Force | Out-Null
   Write-Text (Join-Path $tgt 'ORIGEN.txt') $a
   $cfg = Join-Path $a 'claude_desktop_config.json'
@@ -105,21 +110,31 @@ foreach ($a in $apps) {
       # Si ya se copió una carpeta padre (ej. plugins\...\skills dentro de plugins), no se duplica.
       if (@($found | Where-Object { $full.StartsWith($_ + '\') -or $full.StartsWith($_ + '/') }).Count -gt 0) { return }
       $rel = $full.Substring($a.Length).TrimStart('\', '/')
-      $dstParent = Join-Path $tgt (Split-Path $rel -Parent)
+      $found += $full
+      # La app de Microsoft Store expone la misma carpeta en dos rutas: no se copia dos veces.
+      if ($relSeen -contains $rel) { Write-Log "  · Desktop (duplicado, omitido): $rel"; return }
+      $relSeen += $rel
+      # Rutas internas muy largas (ids de 36 caracteres): se guardan "aplanadas" como NN\<carpeta>
+      # y el mapeo NN -> ruta original queda en desktop-app\MAPEO.txt.
+      $k++
+      $slot = '{0:D2}' -f $k
+      $dstParent = Join-Path $tgt $slot
       New-Item -ItemType Directory -Path $dstParent -Force | Out-Null
       $failed += (Copy-Resilient $full $dstParent $robolog)
-      $found += $full
-      Write-Log "  + Desktop: $rel"
+      $map.Add("a$i\$slot`t$full")
+      Write-Log "  + Desktop: $rel  ->  a$i\$slot"
     }
 }
+Write-Text (Join-Path $desk 'MAPEO.txt') ($map -join "`r`n")
 Write-Text (Join-Path $desk 'encontrado.txt') ($found -join "`r`n")
 if (-not $apps) { Write-Log '  · App Desktop/Cowork no encontrada en esta máquina' }
 elseif (-not $found) { Write-Log '  · Desktop: no se encontraron carpetas skills/plugins locales' }
 
 # --- 4. Escaneo de secretos residuales ---------------------------------------------
 $leakRx = 'sk-ant-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|"accessToken"|"refreshToken"'
+# Se escanea configuración e historial; el código de skills/plugins da falsos positivos.
 $leaks = Get-ChildItem -LiteralPath $out -Recurse -File -Force -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -ne 'backup.log' } |
+  Where-Object { $_.Name -notmatch '^(backup|robocopy)\.log$' -and $_.FullName -notmatch '\\(desktop-app|plugins|skills)\\' } |
   Select-String -Pattern $leakRx -List -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -Unique
 if ($leaks) {
   Write-Warn 'Posibles secretos en estos archivos (revisalos antes de compartir el zip):'
@@ -176,8 +191,10 @@ Get-ChildItem -LiteralPath $desk -Recurse -Filter 'claude_desktop_config.json' -
   $j = Read-Json $_.FullName
   if ($j.mcpServers) { $j.mcpServers.PSObject.Properties | ForEach-Object { $inv.Add("- [Desktop] $($_.Name)") } }
 }
-Get-ChildItem -LiteralPath $out -Recurse -File -Include '*.json', '*.sanitized' -ErrorAction SilentlyContinue |
-  Select-String -SimpleMatch $script:Redacted -List | ForEach-Object { $inv.Add("- secreto enmascarado en: $($_.Path.Substring($out.Length + 1))") }
+# (-Include no funciona junto con -LiteralPath en PowerShell 5.1: se filtra con Where-Object.)
+Get-ChildItem -LiteralPath $out -Recurse -File -ErrorAction SilentlyContinue |
+  Where-Object { ($_.Extension -eq '.json' -or $_.Extension -eq '.sanitized') -and $_.FullName -notmatch '\\(plugins|skills)\\' } |
+  Select-String -SimpleMatch $script:Redacted -List -ErrorAction SilentlyContinue | ForEach-Object { $inv.Add("- secreto enmascarado en: $($_.Path.Substring($out.Length + 1))") }
 $inv.Add(''); $inv.Add('## Proyectos con historial (.claude\projects)')
 Get-ChildItem -LiteralPath (Join-Path $cdir 'projects') -Directory -ErrorAction SilentlyContinue | ForEach-Object { $inv.Add("- $($_.Name)") }
 Write-Text (Join-Path $out 'INVENTARIO.md') ($inv -join "`r`n")
@@ -192,7 +209,7 @@ $zip = Join-Path $Dest "$name.zip"
 try { New-ZipFromDir $out $zip $true $true }
 catch {
   Write-Warn "No se pudo comprimir: $($_.Exception.Message)"
-  Write-Log "La carpeta $out quedó completa y sirve igual como backup. Probá con -Dest C:\CB o con PowerShell 7 (pwsh)."
+  Write-Log "La carpeta $out quedó completa y sirve igual como backup. Probá con -Dest C:\CB o con PowerShell 7 (pwsh). Si no, comprimila a mano (clic derecho → Enviar a → Carpeta comprimida)."
   exit 1
 }
 $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLower()

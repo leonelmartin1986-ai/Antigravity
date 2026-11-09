@@ -65,6 +65,12 @@ $skillDirs = @()
 $skillDirs += Get-ChildItem -LiteralPath (Join-Path $Source 'skills') -Directory -ErrorAction SilentlyContinue
 Get-ChildItem -LiteralPath (Join-Path $Source 'skills\synced') -Directory -ErrorAction SilentlyContinue |
   ForEach-Object { $skillDirs += Get-ChildItem -LiteralPath $_.FullName -Directory }
+# Cowork (Claude Desktop) guarda sus skills de cuenta en local-agent-mode-sessions\skills-plugin\<org>\<cuenta>\skills
+foreach ($a in (Get-AppDirs)) {
+  Get-ChildItem -LiteralPath (Join-Path $a 'local-agent-mode-sessions\skills-plugin') -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory -ErrorAction SilentlyContinue } |
+    ForEach-Object { $skillDirs += Get-ChildItem -LiteralPath (Join-Path $_.FullName 'skills') -Directory -ErrorAction SilentlyContinue }
+}
 foreach ($d in $skillDirs) {
   if (-not (Test-Path -LiteralPath (Join-Path $d.FullName 'SKILL.md'))) { continue }
   $zipPath = Join-Path $root "Skills\$($d.Name).zip"

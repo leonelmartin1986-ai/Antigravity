@@ -127,13 +127,24 @@ function New-ZipFromDir([string]$src, [string]$dst, [bool]$includeBase, [bool]$n
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   if ($noStage) {
     if (Test-Path -LiteralPath $dst) { Remove-Item -LiteralPath $dst -Force }
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($src, $dst, [System.IO.Compression.CompressionLevel]::Optimal, $includeBase)
+    try {
+      [System.IO.Compression.ZipFile]::CreateFromDirectory($src, $dst, [System.IO.Compression.CompressionLevel]::Optimal, $includeBase)
+    } catch {
+      # .NET Framework (PowerShell 5.1) no maneja rutas > 260. tar.exe (Windows 10 1803+) sí.
+      $tar = Get-Command tar.exe -ErrorAction SilentlyContinue
+      if (-not $tar) { throw }
+      Write-Log '  · Compresión .NET falló por rutas largas; reintentando con tar.exe'
+      if (Test-Path -LiteralPath $dst) { Remove-Item -LiteralPath $dst -Force }
+      $parent = Split-Path $src -Parent; $leaf = Split-Path $src -Leaf
+      if ($includeBase) { & tar.exe -a -c -f $dst -C $parent $leaf } else { & tar.exe -a -c -f $dst -C $src . }
+      if ($LASTEXITCODE -ne 0) { throw "tar.exe terminó con código $LASTEXITCODE" }
+    }
     return
   }
   $stage = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $stage | Out-Null
   try {
-    Copy-Item -LiteralPath $src -Destination $stage -Recurse -Force
+    $null = Copy-Resilient $src $stage (Join-Path $stage '_copia.log')
     $item = Join-Path $stage (Split-Path $src -Leaf)
     Get-ChildItem -LiteralPath $item -Recurse -Force -ErrorAction SilentlyContinue |
       Where-Object { $_.Name -eq '.in_use' -or $_.Name -eq '.DS_Store' } |
@@ -166,9 +177,10 @@ function Test-DestRisk([string]$dest) {
 
 # Copia una carpeta o archivo SIN cortar ante errores. Devuelve la cantidad de archivos que fallaron.
 # En Windows usa robocopy (soporta rutas largas y sigue ante errores); si no, copia archivo por archivo.
-function Copy-Resilient([string]$src, [string]$dstParent, [string]$robolog) {
+function Copy-Resilient([string]$src, [string]$dstParent, [string]$robolog, [string[]]$excludeDirs = @(), [string]$dstName) {
   $leaf = Split-Path $src -Leaf
-  $dst = Join-Path $dstParent $leaf
+  if (-not $dstName) { $dstName = $leaf }
+  $dst = Join-Path $dstParent $dstName
   if (Test-Path -LiteralPath $src -PathType Leaf) {
     try { Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop; return 0 }
     catch { Write-Warn "No se pudo copiar ${leaf}: $($_.Exception.Message)"; return 1 }
@@ -176,7 +188,10 @@ function Copy-Resilient([string]$src, [string]$dstParent, [string]$robolog) {
   $robo = Get-Command robocopy.exe -ErrorAction SilentlyContinue
   if ($robo) {
     $before = 0; if (Test-Path -LiteralPath $robolog) { $before = (Get-Content -LiteralPath $robolog | Measure-Object).Count }
-    & robocopy.exe $src $dst /E /COPY:DAT /R:0 /W:0 /NP /NFL /NDL /NJH /NJS "/LOG+:$robolog" | Out-Null
+    $args2 = @($src, $dst, '/E', '/COPY:DAT', '/R:0', '/W:0', '/NP', '/NFL', '/NDL', '/NJH', '/NJS', "/LOG+:$robolog")
+    $xdIn = @($excludeDirs | Where-Object { $_ -and $_.StartsWith($src) })
+    if ($xdIn.Count -gt 0) { $args2 += '/XD'; $args2 += $xdIn }
+    & robocopy.exe @args2 | Out-Null
     $code = $LASTEXITCODE
     if ($code -ge 8) {
       $errs = @(Get-Content -LiteralPath $robolog | Select-Object -Skip $before | Where-Object { $_ -match 'ERROR' })
@@ -188,7 +203,9 @@ function Copy-Resilient([string]$src, [string]$dstParent, [string]$robolog) {
   $fail = 0
   New-Item -ItemType Directory -Path $dst -Force | Out-Null
   Get-ChildItem -LiteralPath $src -Recurse -Force -File -ErrorAction SilentlyContinue | ForEach-Object {
-    $rel = $_.FullName.Substring($src.Length).TrimStart('\', '/')
+    $fn = $_.FullName
+    if (@($excludeDirs | Where-Object { $_ -and ($fn.StartsWith($_ + '\') -or $fn.StartsWith($_ + '/')) }).Count -gt 0) { return }
+    $rel = $fn.Substring($src.Length).TrimStart('\', '/')
     $target = Join-Path $dst $rel
     try {
       New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force -ErrorAction Stop | Out-Null
