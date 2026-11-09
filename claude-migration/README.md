@@ -35,10 +35,16 @@ powershell -ExecutionPolicy Bypass -File .\prepare-cloud.ps1 -Export "$HOME\Down
 ```
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\restore-claude.ps1 -From "$HOME\Desktop\ClaudeBackup_<fecha>.zip" -DryRun
+powershell -ExecutionPolicy Bypass -File .\restore-claude.ps1 -From "C:\ClaudeBackup\ClaudeBackup_<fecha>.zip" -DryRun
 ```
 
 Se recomienda PowerShell 7 (`pwsh`), porque PowerShell 5.1 puede fallar con JSON muy grandes.
+
+En Windows el backup se guarda por defecto en `C:\ClaudeBackup`, una ruta local y corta. No conviene guardarlo en el Escritorio ni en OneDrive por dos motivos:
+- Windows limita las rutas a 260 caracteres, y los nombres de proyectos de Claude son largos.
+- OneDrive sincronizaría el backup a la nube.
+
+Para copiar, el script usa `robocopy`, que soporta rutas largas y sigue si un archivo falla. Al final informa cuántos archivos no se copiaron.
 
 ## Uso — macOS (Terminal)
 Requiere `jq`. Viene con macOS 15 en adelante; si no lo tenés: `brew install jq`.

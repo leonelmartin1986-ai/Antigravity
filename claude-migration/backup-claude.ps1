@@ -40,6 +40,9 @@ Write-Log "Destino            : $out"
 if ($PSVersionTable.PSVersion.Major -lt 7) {
   Write-Log '  (PowerShell 5.1: si un JSON grande falla, corré con PowerShell 7: pwsh -File ...)'
 }
+Test-DestRisk $Dest
+$robolog = Join-Path $out 'robocopy.log'
+$failed = 0
 
 # --- 1. ~/.claude ---------------------------------------------------------------
 $exclude = @('.credentials.json', '.claude.json', 'backups', 'cache', 'shell-snapshots', 'session-env',
@@ -49,8 +52,7 @@ if ($NoHistory) { $exclude += 'projects' }
 if (Test-Path -LiteralPath $cdir) {
   Get-ChildItem -LiteralPath $cdir -Force | ForEach-Object {
     if ($exclude -contains $_.Name -or $_.Name -like '*.lock') { Write-Log "  - excluido: $($_.Name)"; return }
-    try { Copy-Item -LiteralPath $_.FullName -Destination $home2 -Recurse -Force -ErrorAction Stop }
-    catch { Write-Warn "No se pudo copiar $($_.Name): $($_.Exception.Message)" }
+    $failed += (Copy-Resilient $_.FullName $home2 $robolog)
   }
   $pc = Join-Path $home2 'plugins\cache'
   if (Test-Path -LiteralPath $pc) { Remove-Item -LiteralPath $pc -Recurse -Force }
@@ -97,12 +99,16 @@ foreach ($a in $apps) {
   # Rutas internas de Cowork no documentadas: se buscan carpetas skills/plugins, no se asumen.
   Get-ChildItem -LiteralPath $a -Recurse -Directory -Depth 4 -Force -ErrorAction SilentlyContinue |
     Where-Object { ($_.Name -eq 'skills' -or $_.Name -eq 'plugins') -and ($_.FullName -notmatch $skipRx) } |
+    Sort-Object { $_.FullName.Length } |
     ForEach-Object {
-      $rel = $_.FullName.Substring($a.Length).TrimStart('\', '/')
+      $full = $_.FullName
+      # Si ya se copió una carpeta padre (ej. plugins\...\skills dentro de plugins), no se duplica.
+      if (@($found | Where-Object { $full.StartsWith($_ + '\') -or $full.StartsWith($_ + '/') }).Count -gt 0) { return }
+      $rel = $full.Substring($a.Length).TrimStart('\', '/')
       $dstParent = Join-Path $tgt (Split-Path $rel -Parent)
       New-Item -ItemType Directory -Path $dstParent -Force | Out-Null
-      Copy-Item -LiteralPath $_.FullName -Destination $dstParent -Recurse -Force -ErrorAction SilentlyContinue
-      $found += $_.FullName
+      $failed += (Copy-Resilient $full $dstParent $robolog)
+      $found += $full
       Write-Log "  + Desktop: $rel"
     }
 }
@@ -183,7 +189,12 @@ if (Test-Path -LiteralPath $chk) { Copy-Item -LiteralPath $chk -Destination $out
 
 # --- 7. Comprimir ---------------------------------------------------------------------
 $zip = Join-Path $Dest "$name.zip"
-New-ZipFromDir $out $zip $true
+try { New-ZipFromDir $out $zip $true $true }
+catch {
+  Write-Warn "No se pudo comprimir: $($_.Exception.Message)"
+  Write-Log "La carpeta $out quedó completa y sirve igual como backup. Probá con -Dest C:\CB o con PowerShell 7 (pwsh)."
+  exit 1
+}
 $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLower()
 Write-Text "$zip.sha256" "$hash  $name.zip"
 $size = '{0:N1} MB' -f ((Get-Item -LiteralPath $zip).Length / 1MB)
@@ -193,6 +204,11 @@ Write-Log '== Listo =='
 Write-Log "Backup : $zip ($size)"
 Write-Log "SHA256 : $hash"
 Write-Log "Carpeta: $out  (podés borrarla; el zip es el respaldo)"
+if ($failed -gt 0) {
+  Write-Warn "$failed archivo(s) NO se copiaron (ver backup.log / robocopy.log). El resto del backup está completo."
+} else {
+  Write-Log 'Archivos sin copiar: 0'
+}
 Write-Host @"
 
 PRÓXIMOS PASOS

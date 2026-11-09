@@ -23,7 +23,8 @@ $ErrorActionPreference = 'Continue'
 $work = $null
 if (Test-Path -LiteralPath $From -PathType Container) { $bk = (Resolve-Path -LiteralPath $From).Path }
 elseif (Test-Path -LiteralPath $From -PathType Leaf) {
-  $work = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
+  # Ruta corta (no %TEMP%) para no superar el límite de 260 caracteres al descomprimir.
+  $work = Join-Path (Get-DefaultDest) ('_rst' + (Get-Random -Maximum 99999))
   Expand-Archive -LiteralPath $From -DestinationPath $work -Force
   $bk = (Get-ChildItem -LiteralPath $work -Directory -Filter 'ClaudeBackup_*' | Select-Object -First 1).FullName
   if (-not $bk) { $bk = $work }
@@ -47,7 +48,10 @@ try {
   if (-not $DryRun) {
     $snap = Join-Path $HOME (".claude-pre-restore_" + (Get-Date -Format 'yyyyMMdd_HHmmss'))
     New-Item -ItemType Directory -Path $snap -Force | Out-Null
-    if (Test-Path -LiteralPath $cdir) { Copy-Item -LiteralPath $cdir -Destination (Join-Path $snap 'claude-dir') -Recurse -Force }
+    if (Test-Path -LiteralPath $cdir) {
+      $nf = Copy-Resilient $cdir $snap (Join-Path $snap 'robocopy.log')
+      if ($nf -gt 0) { Write-Warn "$nf archivo(s) no entraron en la copia previa (ver robocopy.log en $snap)" }
+    }
     if (Test-Path -LiteralPath $cjson) { Copy-Item -LiteralPath $cjson -Destination (Join-Path $snap 'claude.json') -Force }
     foreach ($a in $apps) {
       $cfg = Join-Path $a 'claude_desktop_config.json'

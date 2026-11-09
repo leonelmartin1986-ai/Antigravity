@@ -122,8 +122,14 @@ function Get-SafeName([string]$s) {
 }
 
 # Comprime una carpeta en zip. Copia antes a temporal para limpiar .in_use / .DS_Store.
-function New-ZipFromDir([string]$src, [string]$dst, [bool]$includeBase) {
+# $noStage: comprime directo (para el backup, que ya viene limpio y puede tener rutas largas).
+function New-ZipFromDir([string]$src, [string]$dst, [bool]$includeBase, [bool]$noStage = $false) {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
+  if ($noStage) {
+    if (Test-Path -LiteralPath $dst) { Remove-Item -LiteralPath $dst -Force }
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($src, $dst, [System.IO.Compression.CompressionLevel]::Optimal, $includeBase)
+    return
+  }
   $stage = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $stage | Out-Null
   try {
@@ -140,8 +146,57 @@ function New-ZipFromDir([string]$src, [string]$dst, [bool]$includeBase) {
   }
 }
 
+# Windows: carpeta local con ruta corta (C:\ClaudeBackup). Evita el límite de 260 caracteres
+# y que el backup termine sincronizado en OneDrive (el Escritorio suele estar dentro de OneDrive).
 function Get-DefaultDest {
+  if ($env:OS -eq 'Windows_NT') {
+    $d = Join-Path ($(if ($env:SystemDrive) { $env:SystemDrive } else { 'C:' }) + '\') 'ClaudeBackup'
+    try { New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop | Out-Null; return $d } catch { }
+    return $HOME
+  }
   $desk = [Environment]::GetFolderPath('Desktop')
   if ($desk -and (Test-Path -LiteralPath $desk)) { return $desk }
   return $HOME
+}
+
+function Test-DestRisk([string]$dest) {
+  if ($dest -match 'OneDrive') { Write-Warn "El destino está dentro de OneDrive: se va a sincronizar a la nube. Recomendado: -Dest C:\ClaudeBackup" }
+  if ($dest.Length -gt 40) { Write-Warn "Ruta de destino larga ($($dest.Length) caracteres): riesgo de superar el límite de 260 de Windows." }
+}
+
+# Copia una carpeta o archivo SIN cortar ante errores. Devuelve la cantidad de archivos que fallaron.
+# En Windows usa robocopy (soporta rutas largas y sigue ante errores); si no, copia archivo por archivo.
+function Copy-Resilient([string]$src, [string]$dstParent, [string]$robolog) {
+  $leaf = Split-Path $src -Leaf
+  $dst = Join-Path $dstParent $leaf
+  if (Test-Path -LiteralPath $src -PathType Leaf) {
+    try { Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop; return 0 }
+    catch { Write-Warn "No se pudo copiar ${leaf}: $($_.Exception.Message)"; return 1 }
+  }
+  $robo = Get-Command robocopy.exe -ErrorAction SilentlyContinue
+  if ($robo) {
+    $before = 0; if (Test-Path -LiteralPath $robolog) { $before = (Get-Content -LiteralPath $robolog | Measure-Object).Count }
+    & robocopy.exe $src $dst /E /COPY:DAT /R:0 /W:0 /NP /NFL /NDL /NJH /NJS "/LOG+:$robolog" | Out-Null
+    $code = $LASTEXITCODE
+    if ($code -ge 8) {
+      $errs = @(Get-Content -LiteralPath $robolog | Select-Object -Skip $before | Where-Object { $_ -match 'ERROR' })
+      Write-Warn "robocopy no pudo copiar $($errs.Count) elemento(s) de ${leaf} (detalle en $(Split-Path $robolog -Leaf))"
+      return [Math]::Max(1, $errs.Count)
+    }
+    return 0
+  }
+  $fail = 0
+  New-Item -ItemType Directory -Path $dst -Force | Out-Null
+  Get-ChildItem -LiteralPath $src -Recurse -Force -File -ErrorAction SilentlyContinue | ForEach-Object {
+    $rel = $_.FullName.Substring($src.Length).TrimStart('\', '/')
+    $target = Join-Path $dst $rel
+    try {
+      New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force -ErrorAction Stop | Out-Null
+      Copy-Item -LiteralPath $_.FullName -Destination $target -Force -ErrorAction Stop
+    } catch {
+      $fail++
+      Write-Warn "No se pudo copiar ${leaf}\${rel}: $($_.Exception.Message)"
+    }
+  }
+  return $fail
 }
