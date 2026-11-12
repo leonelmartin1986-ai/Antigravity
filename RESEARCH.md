@@ -79,6 +79,24 @@ Las reglas, los ejemplos y todas las oraciones están en [PREPOSITIONS.md](PREPO
 3. La **mnemotecnia** se usa para entrar, y el **repaso espaciado** compensa su debilidad a largo plazo.
 4. **Poca carga a la vez**: la memoria de trabajo es el recurso más escaso.
 
+### Phrasal verbs
+
+- **Lista:** los 150 phrasal verbs más frecuentes del inglés (lista PHaVE, Garnier y Schmitt, 2015, en su orden de frecuencia), cada uno con su sentido más usado, y 50 más de reuniones y proyectos (*roll out, sign off, wrap up, drill down, run out of*). Esos 50 están ordenados por utilidad estimada, no por un corpus.
+- **Criterio:** en algunos casos se eligió el sentido de trabajo antes que el literal (*look up* = buscar un dato, *hold up* = demorar, *pull up* = abrir en pantalla).
+- **Cómo se enseñan:** cada uno trae el ancla de su partícula, porque explicar la metáfora de la partícula ayuda a recordarlos mejor que memorizar listas (Boers, 2000). La pregunta más frecuente es elegir la partícula en una oración.
+
+### Mejoras para aprender más rápido (noviembre de 2026)
+
+De la revisión de métodos con evidencia se aplicaron los que no necesitan internet:
+
+- **Ráfaga de estructura** (priming estructural y práctica intercalada): tres oraciones modelo con el mismo tiempo y forma, y la cuarta la producís vos. La app elige el tiempo que peor te sale. Base: Schimke y colegas (2025); Pan y colegas (2019, 2024); Nakata y Suzuki (2019).
+- **Pistas graduales:** al escribir, el primer error da una pista y otra oportunidad; la respuesta aparece recién al segundo. Base: evaluación dinámica y corrección indirecta (Coyne y colegas, 2025). La evidencia todavía es preliminar.
+- **Role-play por turnos:** practicar en el contexto en el que vas a usar el idioma. Los metaanálisis de sistemas de diálogo muestran un efecto mediano (Bibauw y colegas, 2022; Lyu y colegas, 2024); acá las conversaciones son guionadas, no con IA.
+- **Rotación de módulos:** frases, preposiciones, phrasal verbs y ráfagas entran de a dos por ronda, para sostener rondas cortas.
+- **Crucigramas:** obligan a recordar la palabra completa a partir del significado (recuerdo productivo), con las letras cruzadas como pista parcial.
+
+Quedaron afuera, porque necesitan conexión y una clave de API: tutor conversacional con IA y corrección de pronunciación por sonido. Tampoco se cambió el sistema de cajas por un modelo de olvido personalizado.
+
 ## 3. Cómo se aplica en la app
 
 | Principio | Cómo lo hace Word Beat |

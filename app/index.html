@@ -76,9 +76,14 @@
         <span>Viborita de letras</span>
       </button>
 
+      <button class="btn btn-snake" id="btn-cross-home" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16v6H4zM9 4h6v16H9z"/></svg>
+        <span>Crucigrama</span>
+      </button>
+
       <button class="btn btn-meet" id="btn-meet-home" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>
-        <span>Mis frases de reunión</span>
+        <span>Reuniones y role-play</span>
         <small class="btn-badge" id="v-meet-home">0/100</small>
       </button>
 
@@ -153,6 +158,15 @@
 
     <!-- FRASES DE REUNIÓN -->
     <section class="view" id="view-meet" data-view="meet" hidden>
+      <h2 class="view-title">Role-play de tus reuniones</h2>
+      <p class="hint">Conversaciones por turnos basadas en tus reuniones reales: te hablan en inglés y vos respondés. Elegís, armás o escribís según tu dificultad.</p>
+      <p class="eyebrow" id="v-role-sub"></p>
+      <button class="btn btn-play" id="btn-role-start" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linejoin:round"><path d="M3 5h12v8H8l-5 4zM21 10v9l-4-3h-6v-2"/></svg>
+        <span>Jugar una conversación</span>
+      </button>
+      <ol class="word-list" id="role-list"></ol>
+
       <h2 class="view-title">Mis 100 frases de reunión</h2>
       <p class="hint">Salen de tus transcripciones de Teams: lo que más decís al saludar, al arrancar, en la parte técnica y al cerrar. Las rondas diarias ya te traen 1 o 2 por vez.</p>
       <p class="eyebrow" id="v-meet-sub"></p>
@@ -180,6 +194,22 @@
       <ol class="word-list" id="phrase-list"></ol>
     </section>
 
+    <!-- CRUCIGRAMA -->
+    <section class="view view-cross" id="view-cross" data-view="cross" hidden>
+      <div class="snake-hud" id="cw-bar">
+        <p class="snake-score">Crucigrama <span id="cw-progress">0/0</span></p>
+        <div class="cw-actions">
+          <button class="btn btn-ghost cw-btn" id="cw-hint" type="button">Pista</button>
+          <button class="btn btn-ghost cw-btn" id="cw-new" type="button">Otro</button>
+        </div>
+      </div>
+      <div class="cw-grid" id="cw-grid" aria-label="Grilla del crucigrama"></div>
+      <p class="cw-clue" id="cw-clue" aria-live="polite"></p>
+      <div class="cw-keys" id="cw-keys" aria-label="Teclado"></div>
+      <div class="cw-list" id="cw-list"></div>
+      <div class="summary" id="cw-over" hidden></div>
+    </section>
+
     <!-- PALABRAS -->
     <section class="view" id="view-words" data-view="words" hidden>
       <h2 class="view-title">Las <span id="v-total-words">1000</span> palabras</h2>
@@ -193,6 +223,7 @@
         <button type="button" class="chip" data-filter="learning">Aprendiendo</button>
         <button type="button" class="chip" data-filter="learned">Aprendidas</button>
         <button type="button" class="chip" data-filter="verb">Verbos</button>
+        <button type="button" class="chip" data-filter="pv">Phrasal verbs</button>
         <button type="button" class="chip" data-filter="song">De canciones</button>
         <button type="button" class="chip" data-filter="work">De mis reuniones</button>
         <button type="button" class="chip" data-filter="biz">Negocios</button>
@@ -300,6 +331,9 @@
 <script src="js/words-work.js"></script>
 <script src="js/phrases.js"></script>
 <script src="js/preps.js"></script>
+<script src="js/phrasals.js"></script>
+<script src="js/roleplays.js"></script>
+<script src="js/crossword.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/snake.js"></script>
 <script src="js/app.js"></script>

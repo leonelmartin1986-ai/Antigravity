@@ -65,6 +65,14 @@
     { id: "prepall", name: "Todas las reglas", desc: "Viste las 21 reglas de preposiciones.", test: s => s.stats.prepsIntro >= 21 },
     { id: "prep50", name: "No caigo en la trampa", desc: "50 oraciones con truco bien resueltas.", test: s => s.stats.prepOk >= 50 },
     { id: "prepfix10", name: "Corrector", desc: "10 oraciones con trampa corregidas escribiendo.", test: s => s.stats.prepFixOk >= 10 },
+    { id: "pv1", name: "Primer phrasal verb", desc: "Aprendiste tu primer phrasal verb.", test: s => s.stats.pvsIntro >= 1 },
+    { id: "pv50", name: "Cincuenta phrasal verbs", desc: "50 phrasal verbs presentados.", test: s => s.stats.pvsIntro >= 50 },
+    { id: "pv200", name: "Los 200 phrasal verbs", desc: "Viste los 200 phrasal verbs.", test: s => s.stats.pvsIntro >= 200 },
+    { id: "cross1", name: "Primer crucigrama", desc: "Completaste un crucigrama.", test: s => s.stats.crosswords >= 1 },
+    { id: "cross10", name: "Crucigramista", desc: "10 crucigramas completos.", test: s => s.stats.crosswords >= 10 },
+    { id: "role1", name: "Primera conversación", desc: "Terminaste un role-play.", test: s => s.stats.roleplays >= 1 },
+    { id: "roleall", name: "Todas las conversaciones", desc: "Jugaste los 16 role-plays.", test: s => Object.keys(s.roles || {}).length >= 16 },
+    { id: "burst10", name: "Estructura firme", desc: "10 ráfagas de estructura completadas.", test: s => s.stats.bursts >= 10 },
     { id: "advanced", name: "Modo avanzado", desc: "Una ronda completa en dificultad Avanzado.", test: s => s.stats.advancedRounds >= 1 }
   ];
 
@@ -126,13 +134,16 @@
       words: {},
       phrases: {},
       preps: {},
+      pvs: {},
+      roles: {},
       streak: { current: 0, best: 0, last: null, freezes: 0 },
       days: {},
       badges: {},
       stats: { introduced: 0, answers: 0, correct: 0, bestCombo: 0, perfectRounds: 0, tenseOk: 0, spellOk: 0, goalsMet: 0,
         orderOk: 0, translateOk: 0, snakeWords: 0, snakeBest: 0, snakeGames: 0, advancedRounds: 0, known: 0, placementDone: 0,
         phrasesIntro: 0, phraseOk: 0, shadowOk: 0, meetings: 0, shadowSessions: 0,
-        prepsIntro: 0, prepOk: 0, prepFixOk: 0 },
+        prepsIntro: 0, prepOk: 0, prepFixOk: 0,
+        pvsIntro: 0, pvOk: 0, bursts: 0, roleplays: 0, roleTurnsOk: 0, crosswords: 0, crosswordWords: 0 },
       settings: { newPerDay: 5, goalMin: 10, rate: 0.85, sound: true, calm: false, tts: true, level: 1 }
     };
   }
@@ -147,6 +158,8 @@
     out.words = s.words || {};
     out.phrases = s.phrases || {};
     out.preps = s.preps || {};
+    out.pvs = s.pvs || {};
+    out.roles = s.roles || {};
     out.days = s.days || {};
     out.badges = s.badges || {};
     return out;
@@ -159,7 +172,7 @@
 
   function today(s, now) {
     const k = dayKey(now);
-    if (!s.days[k]) s.days[k] = { ms: 0, xp: 0, answers: 0, correct: 0, newWords: 0, newPhrases: 0, newPreps: 0, rounds: 0, goal: false };
+    if (!s.days[k]) s.days[k] = { ms: 0, xp: 0, answers: 0, correct: 0, newWords: 0, newPhrases: 0, newPreps: 0, newPvs: 0, rounds: 0, goal: false };
     return s.days[k];
   }
 
@@ -278,10 +291,20 @@
     shuffle(reviews.concat(extra), rnd).forEach(e => {
       steps.push(makeQuestion(s, e, words, rnd, s.words[e.w].box));
     });
-    // Tus frases de reunión: hasta 2 por ronda, con su propio repaso espaciado.
-    if (opts.phrases !== false) phraseSteps(s, allPhrases(), now, rnd, 2).forEach(x => steps.push(x));
-    // Preposiciones: hasta 2 oraciones con truco por ronda, con su propio repaso espaciado.
-    if (opts.preps !== false) prepSteps(s, allPreps(), now, rnd, 2).forEach(x => steps.push(x));
+    // Módulos extra (frases, preposiciones, phrasal verbs y ráfaga de estructura): entran de a 2 por ronda
+    // y van rotando, para que la ronda no se alargue. Cada uno tiene su propio repaso espaciado.
+    const mods = [
+      () => (opts.phrases !== false ? phraseSteps(s, allPhrases(), now, rnd, 2) : []),
+      () => (opts.preps !== false ? prepSteps(s, allPreps(), now, rnd, 2) : []),
+      () => (opts.phrasals !== false ? pvSteps(s, allPhrasals(), now, rnd, 2) : []),
+      () => (opts.burst !== false ? burstSteps(s, words, rnd) : [])
+    ];
+    const start = (today(s, now).rounds || 0) % mods.length;
+    let usedMods = 0;
+    for (let i = 0; i < mods.length && usedMods < 2; i++) {
+      const extraSteps = mods[(start + i) % mods.length]();
+      if (extraSteps.length) { usedMods++; extraSteps.forEach(x => steps.push(x)); }
+    }
     // Segunda exposición de las nuevas al final de la ronda (espaciado dentro de la sesión).
     fresh.forEach(e => steps.push(makeQuestion(s, e, words, rnd, 1)));
     return steps.filter(Boolean);
@@ -495,6 +518,7 @@
   function checkAnswer(q, given) {
     if (q.p) return checkPhrase(q, given);
     if (q.r) return checkPrep(q, given);
+    if (q.rp) return checkRole(q, given);
     if (q.kind === "translate") return G.checkSentence(q.target, given, wordFor(q.w));
     if (q.kind === "order") return G.normSentence(given) === G.normSentence(q.answer);
     return normalize(given) === normalize(q.answer);
@@ -531,6 +555,8 @@
   function applyAnswer(s, q, correct, now, combo, practice) {
     if (q.p) return applyPhrase(s, q, correct, now, combo, practice);
     if (q.r) return applyPrep(s, q, correct, now, combo, practice);
+    if (q.v) return applyPv(s, q, correct, now, combo, practice);
+    if (q.rp) return applyRole(s, q, correct, now, combo);
     const ws = wordState(s, q.w);
     const d = today(s, now);
     ws.seen++;
@@ -548,6 +574,7 @@
       s.stats.correct++;
       d.correct++;
       if (q.kind === "tense") s.stats.tenseOk++;
+      if (q.burst) s.stats.bursts++;
       if (q.kind === "spell") s.stats.spellOk++;
       if (q.kind === "order") s.stats.orderOk++;
       if (q.kind === "translate") s.stats.translateOk++;
@@ -1021,6 +1048,220 @@
     return steps;
   }
 
+  /* ---------- phrasal verbs ---------- */
+
+  const PV_NEW_PER_DAY = 4;
+  const PARTICLES = ["up", "out", "off", "on", "down", "back", "in", "over", "away", "through", "around", "into", "for", "with", "about", "along"];
+
+  let PV_LIST = null;
+  function allPhrasals() {
+    if (!PV_LIST) PV_LIST = (typeof module !== "undefined" && module.exports ? require("./phrasals.js") : root.PHRASALS) || [];
+    return PV_LIST;
+  }
+
+  function pvState(s, id) {
+    if (!s.pvs) s.pvs = {};
+    if (!s.pvs[id]) s.pvs[id] = { box: 0, due: 0, seen: 0, ok: 0, ko: 0, last: 0, intro: 0 };
+    return s.pvs[id];
+  }
+
+  function introducePv(s, id, now) {
+    const st = pvState(s, id);
+    if (st.intro) return 0;
+    st.intro = now;
+    st.due = now;
+    s.stats.pvsIntro++;
+    const d = today(s, now);
+    d.newPvs = (d.newPvs || 0) + 1;
+    s.xp += 5;
+    d.xp += 5;
+    return 5;
+  }
+
+  /*
+   * Preguntas de phrasal verbs: significado, al revés, elegir la partícula en una oración
+   * y, en Avanzado, escribirlo. La partícula es lo que más se confunde, por eso pesa más.
+   */
+  function pvQuestion(s, pv, list, rnd, box, forced) {
+    const lvl = level(s);
+    let kind = forced;
+    if (!kind) {
+      const pool = box === 0 ? ["pvmeaning", "pvpart"] : ["pvpart", "pvpart", "pvreverse", "pvmeaning"];
+      if (lvl >= 2 && box >= 2) pool.push("pvtype");
+      if (lvl >= 3 && box >= 1) pool.push("pvtype", "pvtype");
+      kind = pick(pool, rnd);
+    }
+    const q = { kind, v: pv.id, w: pv.w, es: pv.es, full: pv.ex, xe: pv.xe, sentence: pv.cloze };
+    if (kind === "pvmeaning" || kind === "pvreverse") {
+      const key = kind === "pvmeaning" ? "es" : "w";
+      const opts = [pv[key]];
+      shuffle(list.filter(x => x.id !== pv.id), rnd).forEach(x => { if (opts.length < 4 && !opts.includes(x[key])) opts.push(x[key]); });
+      q.options = shuffle(opts, rnd);
+      q.answer = pv[key];
+    } else if (kind === "pvpart") {
+      // Distractores: otras partículas con la misma cantidad de palabras, para que no se note cuál es.
+      const n = pv.part.split(" ").length;
+      const others = n === 1 ? PARTICLES : Array.from(new Set(list.map(x => x.part).filter(x => x && x.split(" ").length === n)));
+      const opts = [pv.part];
+      shuffle(others.filter(x => x !== pv.part), rnd).forEach(x => { if (opts.length < 4) opts.push(x); });
+      q.options = shuffle(opts, rnd);
+      q.answer = pv.part;
+    } else q.answer = pv.w;
+    return q;
+  }
+
+  function applyPv(s, q, correct, now, combo, practice) {
+    if (correct) s.stats.pvOk++;
+    return applyItem(s, pvState(s, q.v), correct, now, combo, practice, { pvpart: 12, pvreverse: 12, pvtype: 20 }[q.kind] || 10);
+  }
+
+  function pvSteps(s, list, now, rnd, max) {
+    const st = s.pvs || {};
+    const seen = list.filter(x => st[x.id] && st[x.id].intro);
+    const due = seen.filter(x => st[x.id].due <= now).sort((a, b) => st[a.id].due - st[b.id].due).slice(0, max);
+    const steps = due.map(x => pvQuestion(s, x, list, rnd, st[x.id].box));
+    if (steps.length >= max) return steps;
+    const fresh = list.find(x => !(st[x.id] && st[x.id].intro));
+    if (fresh && (today(s, now).newPvs || 0) < PV_NEW_PER_DAY) {
+      steps.push({ kind: "pvintro", v: fresh.id });
+      steps.push(pvQuestion(s, fresh, list, rnd, 0, "pvpart"));
+    }
+    return steps;
+  }
+
+  /* ---------- ráfaga de estructura ---------- */
+
+  /*
+   * Priming estructural: tres oraciones modelo con el mismo tiempo y forma, y verbos distintos;
+   * la cuarta la producís vos. Se elige el tiempo que peor te sale (o el menos practicado).
+   */
+  function burstSteps(s, words, rnd) {
+    const lvl = level(s);
+    const verbs = words.filter(e => e.t === "v" && s.words[e.w] && s.words[e.w].intro);
+    if (verbs.length < 4) return [];
+    const agg = {};
+    verbs.forEach(e => Object.entries(s.words[e.w].forms || {}).forEach(([k, v]) => { agg[k] = agg[k] || { ok: 0, ko: 0 }; agg[k].ok += v.ok; agg[k].ko += v.ko; }));
+    const score = t => { const a = agg[t.id]; return a ? (a.ok + 1) / (a.ok + a.ko + 2) + Math.min(0.3, (a.ok + a.ko) / 100) : 0; };
+    const tenses = G.TENSES.filter(t => t.lvl <= lvl).sort((a, b) => score(a) - score(b) || a.lvl - b.lvl);
+    const tense = tenses[Math.floor(rnd() * Math.min(2, tenses.length))];
+    const usable = shuffle(verbs.filter(e => G.tensesFor(e, lvl).some(t => t.id === tense.id)), rnd).slice(0, 4);
+    if (usable.length < 4) return [];
+    const pol = pickPol(lvl, rnd, true);
+    const polEs = G.POLARITIES.find(x => x.id === pol).es.toLowerCase();
+    const subjects = usable.map(e => pickSubject(e, rnd));
+    const builds = usable.map((e, i) => G.build(e, tense.id, subjects[i], pol));
+    const target = usable[3], b = builds[3];
+    const head = { w: target.w, tense: tense.id, tenseEs: tense.es + " · " + polEs, hint: tense.hint, es: b.es, full: b.en, burst: true };
+    let q;
+    if (lvl === 1) {
+      const pool = new Set([b.verb]);
+      shuffle(G.tensesFor(target, 2), rnd).forEach(o => { if (pool.size < 4) pool.add(G.build(target, o.id, subjects[3], "aff").verb); });
+      q = Object.assign(head, { kind: "phrase", sentence: b.pre + " ___" + b.post, options: shuffle(Array.from(pool), rnd), answer: b.verb });
+    } else if (lvl === 2) {
+      q = Object.assign(head, { kind: "order", tiles: shuffle(b.words.slice(), rnd), answer: b.words.join(" ") });
+    } else {
+      q = Object.assign(head, { kind: "translate", pol, answer: b.en, target: b });
+    }
+    return [{
+      kind: "burst", w: target.w, tense: tense.id, tenseEs: tense.es, polEs, hint: tense.hint,
+      models: builds.slice(0, 3).map((x, i) => ({ en: x.en, es: x.es, verb: x.verb, w: usable[i].w }))
+    }, q];
+  }
+
+  /* ---------- role-play ---------- */
+
+  let RP_LIST = null;
+  function allRoleplays() {
+    if (!RP_LIST) RP_LIST = (typeof module !== "undefined" && module.exports ? require("./roleplays.js") : root.ROLEPLAYS) || [];
+    return RP_LIST;
+  }
+
+  // Elige la conversación menos jugada (y entre esas, la que hace más que no jugás).
+  function pickRoleplay(s, list) {
+    const st = s.roles || {};
+    return list.slice().sort((a, b) => ((st[a.id] || {}).n || 0) - ((st[b.id] || {}).n || 0) || ((st[a.id] || {}).last || 0) - ((st[b.id] || {}).last || 0))[0] || null;
+  }
+
+  // Cada turno: te hablan en inglés y respondés. Elegir, armar o escribir según la dificultad.
+  function roleplaySteps(s, sc, rnd) {
+    const lvl = level(s);
+    const played = ((s.roles || {})[sc.id] || {}).n || 0;
+    return sc.turns.map((t, i) => {
+      const words = t.en.split(" ");
+      let kind = "rchoose";
+      if (lvl === 2) kind = (i % 2 === 1 || played > 0) && words.length <= 14 ? "rorder" : "rchoose";
+      if (lvl >= 3) kind = (i % 2 === 1 || played > 0) ? "rtype" : (words.length <= 14 ? "rorder" : "rchoose");
+      const q = { kind, rp: sc.id, turn: i, turns: sc.turns.length, title: sc.title, who: sc.who, ctx: sc.ctx, them: t.them, themEs: t.themEs, es: t.es, answer: t.en, full: t.en, alt: t.alt || [] };
+      if (kind === "rchoose") q.options = shuffle([t.en].concat(t.bad || []), rnd);
+      if (kind === "rorder") q.tiles = shuffle(words.slice(), rnd);
+      return q;
+    });
+  }
+
+  function checkRole(q, given) {
+    if (q.kind === "rtype") return phraseMatch({ en: q.answer, alt: q.alt }, given, 0.12);
+    if (q.kind === "rorder") return G.normSentence(given) === G.normSentence(q.answer);
+    return normalize(given) === normalize(q.answer);
+  }
+
+  function applyRole(s, q, correct, now, combo) {
+    const d = today(s, now);
+    s.stats.answers++;
+    d.answers++;
+    let xp = 0;
+    if (correct) {
+      s.stats.correct++;
+      d.correct++;
+      s.stats.roleTurnsOk++;
+      const base = { rchoose: 12, rorder: 18, rtype: 26 }[q.kind];
+      xp = Math.round((base + Math.min(10, combo * 2)) * (LEVELS[s.settings.level] || LEVELS[1]).xp);
+      s.stats.bestCombo = Math.max(s.stats.bestCombo, combo + 1);
+    }
+    s.xp += xp;
+    d.xp += xp;
+    return { xp, lifeLost: false };
+  }
+
+  function finishRoleplay(s, now, id, correct, total) {
+    if (!s.roles) s.roles = {};
+    const st = s.roles[id] || (s.roles[id] = { n: 0, best: 0, last: 0 });
+    st.n++;
+    st.last = now;
+    st.best = Math.max(st.best, total ? Math.round(correct / total * 100) : 0);
+    s.stats.roleplays++;
+    const streakInfo = touchStreak(s, now);
+    const bonus = correct === total ? 20 : 0;
+    s.xp += bonus;
+    today(s, now).xp += bonus;
+    return { bonus, streakInfo };
+  }
+
+  /* ---------- crucigrama ---------- */
+
+  // Palabras para el crucigrama: las que ya viste (si son pocas, las más frecuentes) y tus phrasal verbs.
+  function crosswordPool(s, words, phrasals, rnd, size) {
+    const max = size || 9;
+    const ok = e => /^[a-z]+$/i.test(e.w) && e.w.length >= 3 && e.w.length <= max;
+    let seen = words.filter(e => s.words[e.w] && s.words[e.w].intro && ok(e));
+    if (seen.length < 25) seen = seen.concat(words.filter(e => ok(e) && !seen.includes(e)).slice(0, 60 - seen.length));
+    const pool = shuffle(seen, rnd).slice(0, 45).map(e => ({ answer: e.w.toUpperCase(), clue: e.es.split(" / ")[0], w: e.w }));
+    const st = s.pvs || {};
+    shuffle((phrasals || []).filter(x => st[x.id] && st[x.id].intro && x.w.replace(/ /g, "").length <= max), rnd).slice(0, 10)
+      .forEach(x => pool.push({ answer: x.w.replace(/ /g, "").toUpperCase(), clue: x.es, w: x.w, tag: "phrasal verb: " + x.w.split(" ").map(p => p.length).join(" + ") + " letras", pv: x.id }));
+    return shuffle(pool, rnd);
+  }
+
+  function applyCrossword(s, now, solved, hints, complete) {
+    s.stats.crosswords += complete ? 1 : 0;
+    s.stats.crosswordWords += solved.length;
+    const xp = Math.max(0, solved.length * 8 - hints * 2) + (complete ? 20 : 0);
+    s.xp += xp;
+    today(s, now).xp += xp;
+    solved.forEach(w => { const ws = s.words[w]; if (ws) { ws.seen++; ws.ok++; ws.last = now; } });
+    if (complete) touchStreak(s, now);
+    return xp;
+  }
+
   const Engine = {
     BANDS, PER_BAND, DAY, INTERVALS, MAX_BOX, LEARNED_BOX, MAX_LIVES, LIFE_REGEN_MS, ROUND_SIZE, TENSES, BADGES, FORM_LABELS, LEVELS,
     markKnown, placementQuiz, applyPlacement, applySnake, pick,
@@ -1031,6 +1272,8 @@
     PHRASE_CATS, PHRASE_NEW_PER_DAY, MEETING_PLAN, allPhrases, phraseState, duePhrases, newPhrasesAvailable, introducePhrase,
     meetQuestion, phraseMatch, checkPhrase, applyPhrase, phraseSteps, buildMeeting, buildShadow, finishPhraseGame, countPhrasesLearned,
     PREP_NEW_PER_DAY, allPreps, prepState, introducePrep, fillPrep, prepQuestion, checkPrep, applyPrep, prepSteps,
+    PV_NEW_PER_DAY, allPhrasals, pvState, introducePv, pvQuestion, applyPv, pvSteps, burstSteps,
+    allRoleplays, pickRoleplay, roleplaySteps, checkRole, applyRole, finishRoleplay, crosswordPool, applyCrossword,
     checkAnswer, introduce, applyAnswer, finishRound, openChest, addTime, newBadges, lastDays
   };
 

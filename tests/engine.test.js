@@ -338,3 +338,135 @@ test("preposiciones en la ronda: regla nueva con su tarjeta, cupo diario y repas
   for (let i = 0; i < 40; i++) kinds.add(E.prepQuestion(s, PREPS[0], E.makeRng(i), 3).kind);
   assert.deepStrictEqual([...kinds].sort(), ["prepchoose", "prepfix"]);
 });
+
+const PHRASALS = require("../app/js/phrasals.js");
+const ROLEPLAYS = require("../app/js/roleplays.js");
+const Crossword = require("../app/js/crossword.js");
+
+test("phrasal verbs: 200 únicos con partícula marcada, ejemplo y ancla", () => {
+  assert.strictEqual(PHRASALS.length, 200);
+  assert.strictEqual(new Set(PHRASALS.map(x => x.w)).size, 200);
+  PHRASALS.forEach(x => {
+    assert.ok(["s", "i", "n"].includes(x.kind), x.w);
+    assert.strictEqual(x.part, x.w.split(" ").slice(1).join(" "), x.w);
+    assert.ok(x.cloze.includes("___") && !/[\[\]]/.test(x.ex), x.w);
+    assert.strictEqual(x.cloze.replace("___", x.part), x.ex, x.w);
+    assert.ok(x.es && x.xe && x.mn && x.past, x.w);
+  });
+});
+
+test("phrasal verbs: preguntas válidas, cupo diario y repaso espaciado", () => {
+  const s = E.newState(T0);
+  const rnd = E.makeRng(11);
+  for (const lvl of [1, 2, 3]) {
+    s.settings.level = lvl;
+    PHRASALS.forEach(x => {
+      for (let box = 0; box <= 3; box++) {
+        const q = E.pvQuestion(s, x, PHRASALS, rnd, box);
+        if (q.options) {
+          assert.ok(q.options.includes(q.answer), q.kind + " " + x.w);
+          assert.strictEqual(new Set(q.options).size, q.options.length, x.w);
+          assert.ok(q.options.length >= 3, x.w);
+        }
+        assert.ok(E.checkAnswer(q, q.answer));
+      }
+    });
+  }
+  s.settings.level = 1;
+  const steps = E.pvSteps(s, PHRASALS, T0, rnd, 2);
+  assert.deepStrictEqual(steps.map(x => x.kind), ["pvintro", "pvpart"]);
+  for (let i = 0; i < 6; i++) { const st = E.pvSteps(s, PHRASALS, T0, rnd, 2).find(x => x.kind === "pvintro"); if (st) { E.introducePv(s, st.v, T0); s.pvs[st.v].due = T0 + 2 * E.DAY; } }
+  assert.strictEqual(s.stats.pvsIntro, E.PV_NEW_PER_DAY);
+  const q = E.pvQuestion(s, PHRASALS[0], PHRASALS, rnd, 0, "pvpart");
+  s.pvs[PHRASALS[0].id].due = T0;
+  E.applyAnswer(s, q, true, T0, 0, false);
+  assert.strictEqual(s.pvs[PHRASALS[0].id].box, 1);
+  assert.strictEqual(s.stats.pvOk, 1);
+});
+
+test("la ronda rota los módulos extra: como mucho 2 por ronda", () => {
+  const s = E.newState(T0);
+  WORDS.filter(w => w.t === "v").slice(0, 6).forEach(w => E.introduce(s, w.w, T0));
+  const mods = x => (x.p ? "frase" : x.r ? "prep" : x.v ? "pv" : x.kind === "burst" || x.burst ? "burst" : null);
+  const seen = new Set();
+  for (let r = 0; r < 4; r++) {
+    E.today(s, T0).rounds = r;
+    const used = new Set(E.buildRound(s, WORDS, T0, E.makeRng(r + 1)).map(mods).filter(Boolean));
+    assert.ok(used.size <= 2, "ronda " + r + ": " + [...used]);
+    used.forEach(x => seen.add(x));
+  }
+  assert.deepStrictEqual([...seen].sort(), ["burst", "frase", "prep", "pv"]);
+});
+
+test("ráfaga de estructura: 3 modelos con el mismo tiempo y una cuarta para producir", () => {
+  const s = E.newState(T0);
+  assert.deepStrictEqual(E.burstSteps(s, WORDS, E.makeRng(1)), []);
+  WORDS.filter(w => w.t === "v").slice(0, 8).forEach(w => E.introduce(s, w.w, T0));
+  for (const lvl of [1, 2, 3]) {
+    s.settings.level = lvl;
+    for (let i = 0; i < 20; i++) {
+      const [card, q] = E.burstSteps(s, WORDS, E.makeRng(i + lvl * 100));
+      assert.strictEqual(card.models.length, 3);
+      assert.strictEqual(new Set(card.models.map(m => m.w).concat(q.w)).size, 4, "4 verbos distintos");
+      if (card.polEs !== "pregunta") card.models.forEach(m => assert.ok(m.en.includes(m.verb), m.en + " / " + m.verb));
+      assert.strictEqual(q.tense, card.tense);
+      assert.ok(E.checkAnswer(q, q.kind === "translate" ? q.full : q.answer), q.kind);
+      if (q.options) assert.ok(q.options.includes(q.answer));
+    }
+  }
+});
+
+test("role-play: 16 conversaciones de 6 turnos, con respuesta modelo y opciones incorrectas", () => {
+  assert.strictEqual(ROLEPLAYS.length, 16);
+  const s = E.newState(T0);
+  ROLEPLAYS.forEach(sc => {
+    assert.strictEqual(sc.turns.length, 6, sc.id);
+    sc.turns.forEach(t => {
+      assert.ok(t.them && t.themEs && t.es && t.en, sc.id);
+      assert.strictEqual(t.bad.length, 2);
+      assert.strictEqual(new Set([t.en].concat(t.alt, t.bad).map(x => x.toLowerCase())).size, 3 + t.alt.length, sc.id + ": " + t.en);
+    });
+    for (const lvl of [1, 2, 3]) {
+      s.settings.level = lvl;
+      E.roleplaySteps(s, sc, E.makeRng(lvl)).forEach((q, i) => {
+        assert.ok(E.checkAnswer(q, q.answer), q.kind + " " + q.answer);
+        if (q.kind === "rchoose") sc.turns[i].bad.forEach(b => assert.ok(!E.checkAnswer(q, b)));
+        if (q.kind === "rtype") {
+          q.alt.forEach(a => assert.ok(E.checkAnswer(q, a), a));
+          sc.turns[i].bad.forEach(b => assert.ok(!E.checkAnswer(q, b), "acepta una incorrecta: " + b));
+        }
+      });
+    }
+  });
+  s.settings.level = 1;
+  const first = E.pickRoleplay(s, ROLEPLAYS);
+  E.finishRoleplay(s, T0, first.id, 5, 6);
+  assert.strictEqual(s.roles[first.id].best, 83);
+  assert.notStrictEqual(E.pickRoleplay(s, ROLEPLAYS).id, first.id);
+});
+
+test("crucigrama: las palabras se cruzan bien y la grilla coincide con las respuestas", () => {
+  const s = E.newState(T0);
+  for (let seed = 1; seed <= 30; seed++) {
+    const rnd = E.makeRng(seed);
+    const puz = Crossword.generate(E.crosswordPool(s, WORDS, PHRASALS, rnd, 9), rnd, { size: 9, words: 7 });
+    assert.ok(puz && puz.words.length >= 5, "pocas palabras con semilla " + seed);
+    const count = {};
+    puz.words.forEach(w => Crossword.cellsOf(w).forEach(([r, c], i) => {
+      assert.strictEqual(puz.cells[r][c], w.answer[i]);
+      count[r + "," + c] = (count[r + "," + c] || 0) + 1;
+    }));
+    let letters = 0;
+    puz.cells.forEach(row => row.forEach(c => { if (c) letters++; }));
+    assert.strictEqual(Object.keys(count).length, letters, "no hay letras sueltas");
+    // Ninguna secuencia de 2 o más letras en la grilla queda sin ser una palabra del crucigrama.
+    const runs = [];
+    for (let i = 0; i < 9; i++) {
+      runs.push(...puz.cells[i].map(c => c || " ").join("").split(" "), ...puz.cells.map(r => r[i] || " ").join("").split(" "));
+    }
+    runs.filter(x => x.length > 1).forEach(x => assert.ok(puz.words.some(w => w.answer === x), "secuencia extra " + x));
+  }
+  const xp = E.applyCrossword(s, T0, ["go", "have"], 1, true);
+  assert.strictEqual(xp, 34);
+  assert.strictEqual(s.stats.crosswords, 1);
+});

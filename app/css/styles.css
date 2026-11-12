@@ -431,3 +431,45 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .prep-trap .bad { padding: 8px 12px; border-radius: var(--r-sm); background: var(--ko-bg); color: var(--ko); text-decoration: line-through; text-decoration-thickness: 2px; }
 .prep-trap .good { padding: 8px 12px; border-radius: var(--r-sm); background: var(--ok-bg); color: var(--ok); }
 .q-sentence.prep-wrong { text-decoration: underline wavy var(--ko); text-underline-offset: 6px; }
+
+/* phrasal verbs, role-play y pistas graduales */
+.pv-word { font-size: clamp(34px, 11vw, 46px); }
+.retry-hint { margin: 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--memo); color: var(--memo-ink); font-weight: 700; }
+.prep-ex u { text-decoration-thickness: 3px; text-underline-offset: 4px; text-decoration-color: var(--sun); }
+.bubble { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--r-md); max-width: 92%; }
+.bubble b { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bubble.them { background: var(--surface-2); justify-self: start; border-bottom-left-radius: 4px; }
+.bubble.them .speak { text-align: left; background: none; padding: 2px 0; font: 600 19px/1.3 var(--f-display); display: flex; gap: 8px; align-items: flex-start; border-radius: 8px; }
+.bubble.them .speak svg { flex: none; margin-top: 2px; }
+.bubble.them em { color: var(--muted); font-size: 15px; }
+.bubble.them .link-btn { justify-self: start; padding: 0; font-size: 14px; }
+.bubble.me { background: var(--accent-soft); justify-self: end; border-bottom-right-radius: 4px; font: 600 18px/1.3 var(--f-display); }
+
+/* crucigrama */
+.view-cross { gap: 10px; }
+.cw-actions { display: flex; gap: 8px; }
+.cw-btn { min-height: 40px; padding: 6px 14px; font-size: 15px; width: auto; }
+.cw-grid { display: grid; gap: 3px; width: 100%; max-width: 420px; margin: 0 auto; }
+.cw-x { aspect-ratio: 1; }
+.cw-cell {
+  position: relative; aspect-ratio: 1; padding: 0; border: 2px solid var(--line); border-radius: 7px; background: var(--surface);
+  color: var(--ink); font: 700 clamp(15px, 4.8vw, 22px)/1 var(--f-display); text-transform: uppercase;
+}
+.cw-cell i { position: absolute; top: 1px; left: 3px; font: 700 9px/1 var(--f-body); color: var(--muted); font-style: normal; }
+.cw-cell.sel { background: var(--accent-soft); border-color: var(--accent); }
+.cw-cell.cur { border-width: 3px; box-shadow: 0 0 0 2px var(--accent); }
+.cw-cell.ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.cw-cell.bad { background: var(--ko-bg); border-color: var(--ko); }
+.cw-clue { margin: 0; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow); font: 600 18px/1.3 var(--f-display); text-align: center; }
+.cw-clue b { color: var(--accent); }
+.cw-clue small { display: block; font: 400 13px/1.3 var(--f-body); color: var(--muted); }
+.cw-keys { display: grid; gap: 5px; }
+.cw-row { display: flex; gap: 4px; justify-content: center; }
+.cw-key { flex: 1 1 0; max-width: 40px; min-height: 44px; padding: 0; border: 0; border-radius: 8px; background: var(--surface); box-shadow: 0 2px 0 var(--line); color: var(--ink); font: 700 17px/1 var(--f-display); }
+.cw-key.wide { max-width: 60px; flex-grow: 1.6; }
+.cw-key:active { transform: translateY(2px); box-shadow: none; }
+.cw-list { display: grid; gap: 6px; }
+.cw-list .eyebrow { margin: 6px 0 0; }
+.cw-item { text-align: left; border: 0; border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 9px 12px; font-size: 16px; }
+.cw-item.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.cw-item.done { color: var(--ok); background: var(--ok-bg); }

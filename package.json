@@ -9,6 +9,7 @@
     "build:single": "node tools/build-single.js dist/word-beat.html",
     "wordlist": "node tools/gen-wordlist.js > WORDS.md",
     "phrases": "node tools/gen-phrases.js > PHRASES.md",
-    "preps": "node tools/gen-preps.js > PREPOSITIONS.md"
+    "preps": "node tools/gen-preps.js > PREPOSITIONS.md",
+    "phrasals": "node tools/gen-phrasals.js"
   }
 }

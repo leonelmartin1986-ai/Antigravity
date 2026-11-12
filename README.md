@@ -10,8 +10,12 @@ Juego para el teléfono que enseña **1000 palabras en inglés**: las 200 más u
 - **Prueba de nivel y «Ya la sé»:** saltea las palabras que ya conocés. Hasta 20 palabras nuevas por día.
 - **Mis 100 frases de reunión:** las frases que más usás en tus reuniones de Teams (saludo inicial, inicio de conversación, consultas técnicas y saludo final), traducidas al inglés de reunión. Se practican en un **simulador de reunión**, en **escuchar y repetir** (decirlas en voz alta) y dentro de cada ronda diaria. Lista completa en [PHRASES.md](PHRASES.md).
 - **Preposiciones con truco:** 21 reglas (tiempo, lugar, movimiento, combinaciones de trabajo como *depend on* o *responsible for* y verbos que no llevan preposición), cada una con el porqué y ejemplos. En la ronda aparecen oraciones con truco donde una opción es el error típico de quien habla castellano; en Avanzado corregís la oración escribiendo. Lista completa en [PREPOSITIONS.md](PREPOSITIONS.md).
+- **200 phrasal verbs:** los más comunes, por frecuencia, cada uno con el ancla de su partícula (*up* = completar, *off* = separar). Entran de a pocos en las rondas y se preguntan por significado, por partícula y escribiéndolos. Lista en [PHRASALS.md](PHRASALS.md).
+- **Role-play de tus reuniones:** 16 conversaciones por turnos (revisión de FDD, factura anticipo, planning, demo, go-live...). Te hablan en inglés y respondés eligiendo, armando o escribiendo. Guion completo en [ROLEPLAYS.md](ROLEPLAYS.md).
+- **Crucigramas:** grillas de 7 palabras armadas con lo que ya viste, con teclado propio y pistas.
+- **Aprendizaje más rápido:** ráfagas de estructura (3 oraciones modelo y la cuarta la armás vos) y pistas graduales (el primer error al escribir da una pista y otra oportunidad).
 - **Viborita de letras:** comé las letras en orden para formar la palabra. Las consignas rotan entre castellano → inglés, formas verbales y oraciones para completar.
-- **Juego:** puntos, combos, 5 vidas que se recargan, racha diaria con protectores, niveles, 33 logros y un cofre sorpresa al cumplir la meta del día.
+- **Juego:** puntos, combos, 5 vidas que se recargan, racha diaria con protectores, niveles, 41 logros y un cofre sorpresa al cumplir la meta del día.
 - **Registro:** minutos por día, aciertos por palabra y por tiempo verbal, caja de cada palabra y próximo repaso.
 - **Pensada para TDAH:** rondas de 2 minutos, una sola tarea por pantalla, feedback inmediato y nunca te bloquea (sin vidas pasás a práctica libre).
 - Pronuncia en voz alta, funciona sin internet y se instala como una app. Tu progreso queda guardado en el teléfono.
@@ -52,6 +56,9 @@ app/                  la app (se publica tal cual)
   js/words.js         las 200 palabras básicas: traducción, pronunciación, formas, mnemotecnia y ejemplos
   js/words-work.js    las 800 palabras de trabajo (reuniones + negocios) en formato compacto
   js/phrases.js       tus 100 frases de reunión con su traducción
+  js/phrasals.js      los 200 phrasal verbs con ejemplo y ancla
+  js/roleplays.js     16 conversaciones por turnos
+  js/crossword.js     generador de crucigramas
   js/preps.js         21 reglas de preposiciones con su porqué y 122 oraciones con truco
   js/grammar.js       11 tiempos en inglés (afirmativa, negativa, pregunta) y su traducción al castellano
   js/engine.js        repaso espaciado, preguntas por dificultad, puntos, vidas, racha y logros (sin DOM)
@@ -81,4 +88,4 @@ npm run preps          # regenera PREPOSITIONS.md después de editar app/js/prep
 npm run build:single   # genera dist/word-beat.html, todo en un archivo
 ```
 
-Si cambiás archivos de `app/`, subí la versión de la caché en `app/sw.js` (por ejemplo, `wordbeat-v5` → `wordbeat-v6`) para que los teléfonos descarguen la versión nueva.
+Si cambiás archivos de `app/`, subí la versión de la caché en `app/sw.js` (por ejemplo, `wordbeat-v6` → `wordbeat-v7`) para que los teléfonos descarguen la versión nueva.
