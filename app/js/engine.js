@@ -143,7 +143,7 @@
         orderOk: 0, translateOk: 0, snakeWords: 0, snakeBest: 0, snakeGames: 0, advancedRounds: 0, known: 0, placementDone: 0,
         phrasesIntro: 0, phraseOk: 0, shadowOk: 0, meetings: 0, shadowSessions: 0,
         prepsIntro: 0, prepOk: 0, prepFixOk: 0,
-        pvsIntro: 0, pvOk: 0, bursts: 0, roleplays: 0, roleTurnsOk: 0, crosswords: 0, crosswordWords: 0 },
+        pvsIntro: 0, pvOk: 0, pvGames: 0, bursts: 0, roleplays: 0, roleTurnsOk: 0, crosswords: 0, crosswordWords: 0 },
       settings: { newPerDay: 5, goalMin: 10, rate: 0.85, sound: true, calm: false, tts: true, level: 1 }
     };
   }
@@ -1129,6 +1129,38 @@
     return steps;
   }
 
+  /*
+   * Partida de phrasal verbs (desde su menú): 8 preguntas sobre la lista elegida (por ejemplo, solo los
+   * de UP). Primero los vencidos y los más flojos; si faltan, hasta 3 nuevos con su tarjeta.
+   */
+  function buildPvGame(s, list, pool, now, rnd, n) {
+    n = n || 8;
+    const st = s.pvs || {};
+    const src = pool && pool.length ? pool : list;
+    const seen = src.filter(x => st[x.id] && st[x.id].intro);
+    const due = shuffle(seen.filter(x => st[x.id].due <= now), rnd);
+    const rest = seen.filter(x => !due.includes(x)).sort((a, b) => st[a.id].box - st[b.id].box || st[a.id].last - st[b.id].last);
+    const fresh = src.filter(x => !(st[x.id] && st[x.id].intro));
+    const old = due.concat(rest).slice(0, n);
+    const newCount = Math.min(fresh.length, Math.max(old.length >= n ? 1 : n - old.length, 0), 3);
+    const picks = fresh.slice(0, newCount);
+    const steps = [];
+    picks.forEach(x => { steps.push({ kind: "pvintro", v: x.id }); steps.push(pvQuestion(s, x, list, rnd, 0, "pvpart")); });
+    shuffle(old.slice(0, n - picks.length), rnd).forEach(x => steps.push(pvQuestion(s, x, list, rnd, st[x.id].box)));
+    // Segunda pregunta de las nuevas al final, con otro formato.
+    picks.forEach(x => steps.push(pvQuestion(s, x, list, rnd, 1, "pvmeaning")));
+    return steps;
+  }
+
+  function finishPvGame(s, now, errors) {
+    s.stats.pvGames++;
+    const streakInfo = touchStreak(s, now);
+    const bonus = errors === 0 ? 15 : 0;
+    s.xp += bonus;
+    today(s, now).xp += bonus;
+    return { bonus, streakInfo };
+  }
+
   /* ---------- ráfaga de estructura ---------- */
 
   /*
@@ -1272,7 +1304,7 @@
     PHRASE_CATS, PHRASE_NEW_PER_DAY, MEETING_PLAN, allPhrases, phraseState, duePhrases, newPhrasesAvailable, introducePhrase,
     meetQuestion, phraseMatch, checkPhrase, applyPhrase, phraseSteps, buildMeeting, buildShadow, finishPhraseGame, countPhrasesLearned,
     PREP_NEW_PER_DAY, allPreps, prepState, introducePrep, fillPrep, prepQuestion, checkPrep, applyPrep, prepSteps,
-    PV_NEW_PER_DAY, allPhrasals, pvState, introducePv, pvQuestion, applyPv, pvSteps, burstSteps,
+    PV_NEW_PER_DAY, allPhrasals, pvState, introducePv, pvQuestion, applyPv, pvSteps, buildPvGame, finishPvGame, burstSteps,
     allRoleplays, pickRoleplay, roleplaySteps, checkRole, applyRole, finishRoleplay, crosswordPool, applyCrossword,
     checkAnswer, introduce, applyAnswer, finishRound, openChest, addTime, newBadges, lastDays
   };

@@ -76,6 +76,12 @@
         <span>Viborita de letras</span>
       </button>
 
+      <button class="btn btn-meet" id="btn-pv-home" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h9M10 7l5 5-5 5"/><path d="M18 5v14"/></svg>
+        <span>Phrasal verbs</span>
+        <small class="btn-badge" id="v-pv-home">0/200</small>
+      </button>
+
       <button class="btn btn-snake" id="btn-cross-home" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16v6H4zM9 4h6v16H9z"/></svg>
         <span>Crucigrama</span>
@@ -192,6 +198,30 @@
       </div>
       <p class="hint">Tocá una frase para escucharla. El número es cuántas veces la dijiste en tus reuniones.</p>
       <ol class="word-list" id="phrase-list"></ol>
+    </section>
+
+    <!-- PHRASAL VERBS -->
+    <section class="view" id="view-pv" data-view="pv" hidden>
+      <h2 class="view-title">Phrasal verbs</h2>
+      <p class="eyebrow" id="v-pv-sub"></p>
+      <label class="search">
+        <span class="sr">Buscar phrasal verb</span>
+        <input id="pv-search" type="search" placeholder="Buscar: inglés, castellano o ejemplo" autocomplete="off">
+      </label>
+      <div class="filters" id="pv-parts" role="tablist" aria-label="Partícula"></div>
+      <div class="filters" id="pv-status" role="tablist" aria-label="Estado">
+        <button type="button" class="chip on" data-st="all">Todos</button>
+        <button type="button" class="chip" data-st="new">Sin ver</button>
+        <button type="button" class="chip" data-st="learning">Aprendiendo</button>
+        <button type="button" class="chip" data-st="learned">Aprendidos</button>
+      </div>
+      <button class="btn btn-play" id="btn-pv-play" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+        <span id="pv-play-label">Jugar con phrasal verbs</span>
+      </button>
+      <p class="hint" id="pv-play-hint"></p>
+      <p class="hint" id="pv-count"></p>
+      <ol class="word-list" id="pv-list"></ol>
     </section>
 
     <!-- CRUCIGRAMA -->

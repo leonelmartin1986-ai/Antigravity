@@ -216,6 +216,9 @@
     } else note.hidden = true;
 
     $("v-diff").textContent = "Dificultad: " + E.LEVELS[S.settings.level || 1].name;
+    const pvSt = S.pvs || {};
+    const pvDue = PHRASALS.filter(x => pvSt[x.id] && pvSt[x.id].intro && pvSt[x.id].due <= now).length;
+    $("v-pv-home").textContent = pvDue ? pvDue + " para repasar" : PHRASALS.filter(x => pvSt[x.id] && pvSt[x.id].intro).length + "/" + PHRASALS.length;
     const pDue = E.duePhrases(S, PHRASES, now).length;
     $("v-meet-home").textContent = pDue ? pDue + " para repasar" : (S.stats.phrasesIntro || 0) + "/" + PHRASES.length;
     $("placement-banner").hidden = !!S.stats.placementDone || S.stats.introduced >= 30;
@@ -237,6 +240,7 @@
     if (view === "words") renderWords();
     if (view === "meet") { renderMeet(); renderRoleList(); }
     if (view === "cross") cwOpen();
+    if (view === "pv") renderPvMenu();
     if (view === "stats") renderStats();
     if (view === "more") renderMore();
     renderTop();
@@ -532,6 +536,97 @@
     $("sheet-close").addEventListener("click", closeSheet);
     if (S.settings.tts) speak(pv.w);
   }
+
+  /* ---------- menú de phrasal verbs ---------- */
+  const PV_PARTS = ["up", "out", "down", "off", "back", "in", "on", "over"];
+  const PVF = { part: "all", st: "all", open: null };
+
+  function pvFiltered() {
+    const q = $("pv-search").value.trim().toLowerCase();
+    const st = S.pvs || {};
+    return PHRASALS.filter(x => {
+      const s = st[x.id];
+      const intro = s && s.intro;
+      if (PVF.part === "other" ? PV_PARTS.includes(x.part) : PVF.part !== "all" && x.part !== PVF.part) return false;
+      if (PVF.st === "new" && intro) return false;
+      if (PVF.st === "learning" && !(intro && s.box < E.LEARNED_BOX)) return false;
+      if (PVF.st === "learned" && !(intro && s.box >= E.LEARNED_BOX)) return false;
+      if (q && !(x.w.includes(q) || x.es.toLowerCase().includes(q) || x.ex.toLowerCase().includes(q) || x.xe.toLowerCase().includes(q) || (x.syn || "").toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }
+
+  function renderPvMenu() {
+    const st = S.pvs || {};
+    const seen = PHRASALS.filter(x => st[x.id] && st[x.id].intro).length;
+    const learned = PHRASALS.filter(x => st[x.id] && st[x.id].box >= E.LEARNED_BOX).length;
+    $("v-pv-sub").textContent = seen + " de " + PHRASALS.length + " vistos · " + learned + " aprendidos";
+    if (!$("pv-parts").dataset.ready) {
+      $("pv-parts").innerHTML = ['<button type="button" class="chip on" data-part="all">Todas</button>']
+        .concat(PV_PARTS.map(p => '<button type="button" class="chip" data-part="' + p + '">' + p.toUpperCase() + " (" + PHRASALS.filter(x => x.part === p).length + ")</button>"))
+        .concat(['<button type="button" class="chip" data-part="other">Otras</button>']).join("");
+      $("pv-parts").dataset.ready = "1";
+    }
+    const list = pvFiltered();
+    const filtered = list.length !== PHRASALS.length;
+    $("pv-play-label").textContent = filtered && list.length ? "Jugar con estos " + list.length : "Jugar con phrasal verbs";
+    $("btn-pv-play").disabled = !list.length;
+    $("pv-play-hint").textContent = "8 preguntas: elegir la partícula, el significado y escribirlos. Primero los que te tocan repasar; si faltan, suma hasta 3 nuevos.";
+    $("pv-count").textContent = filtered ? list.length + " resultados" : "Tocá uno para ver el significado, el ejemplo y el ancla.";
+    $("pv-list").innerHTML = list.map(x => {
+      const s = st[x.id];
+      const box = s && s.intro ? s.box : -1;
+      let dots = "";
+      for (let i = 1; i <= E.MAX_BOX; i++) dots += '<span class="dot' + (box >= i ? (box >= E.LEARNED_BOX ? " on gold" : " on") : "") + '"></span>';
+      const open = PVF.open === x.id;
+      let h = '<li class="pv-item' + (open ? " open" : "") + '"><button type="button" class="word-row" data-pvrow="' + x.id + '" aria-expanded="' + open + '"><span class="wr-rank">#' + x.rank + '</span><span class="wr-main"><span class="wr-w">' + esc(x.w) + '</span><span class="wr-es">' + esc(x.es) + '</span></span><span class="dots" aria-label="' + esc(box < 0 ? "sin ver" : BOX_ES[box]) + '">' + dots + "</span></button>";
+      if (open) {
+        h += '<div class="pv-detail">';
+        h += '<div class="intro-meta" style="justify-content:flex-start"><button type="button" class="speak" data-say="' + esc(x.w) + '">' + ICON_SPEAK + 'Escuchar</button><span class="pill">pasado: ' + esc(x.past) + "</span></div>";
+        h += '<p class="hint">' + esc(PV_KIND[x.kind] + pvSep(x)) + (x.syn ? " · parecido a «" + esc(x.syn) + "»" : "") + "</p>";
+        h += '<p class="example" style="text-align:left"><button type="button" class="speak" data-say="' + esc(x.ex) + '">' + ICON_SPEAK + esc(x.ex) + "</button><em>" + esc(x.xe) + "</em></p>";
+        h += '<div class="memo"><b>Ancla</b>' + esc(x.mn) + "</div>";
+        h += '<button type="button" class="btn btn-ghost" data-pvone="' + x.id + '">Practicar este</button>';
+        h += "</div>";
+      }
+      return h + "</li>";
+    }).join("") || '<li class="hint">No hay phrasal verbs con esa búsqueda.</li>';
+  }
+
+  function startPvGame(pool) {
+    const steps = E.buildPvGame(S, PHRASALS, pool, Date.now(), rnd, 8);
+    if (!steps.length) { toast("No hay phrasal verbs para jugar con ese filtro."); return; }
+    R = { mode: "pv", steps, i: 0, combo: 0, errors: 0, correct: 0, xp: 0, practice: true, results: [], introduced: [], levelStart: E.levelFor(S.xp).level, waiting: false };
+    go("play");
+    renderSegments();
+    renderStep();
+  }
+
+  $("pv-search").addEventListener("input", () => { PVF.open = null; renderPvMenu(); });
+  $("pv-parts").addEventListener("click", ev => {
+    const c = ev.target.closest(".chip");
+    if (!c) return;
+    PVF.part = c.dataset.part;
+    $("pv-parts").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+    renderPvMenu();
+  });
+  $("pv-status").addEventListener("click", ev => {
+    const c = ev.target.closest(".chip");
+    if (!c) return;
+    PVF.st = c.dataset.st;
+    $("pv-status").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x === c));
+    renderPvMenu();
+  });
+  $("pv-list").addEventListener("click", ev => {
+    const one = ev.target.closest("[data-pvone]");
+    if (one) { const x = BY_PV[one.dataset.pvone]; return startPvGame([x]); }
+    const row = ev.target.closest("[data-pvrow]");
+    if (!row) return;
+    PVF.open = PVF.open === row.dataset.pvrow ? null : row.dataset.pvrow;
+    renderPvMenu();
+    if (PVF.open && S.settings.tts) speak(BY_PV[PVF.open].w);
+  });
+  $("btn-pv-play").addEventListener("click", () => startPvGame(pvFiltered()));
 
   /* ---------- ráfaga de estructura ---------- */
   function renderBurst(st) {
@@ -1074,7 +1169,7 @@
     const now = Date.now();
     const mode = R.mode;
     const roleId = R.role;
-    const fin = mode === "role" ? E.finishRoleplay(S, now, roleId, R.correct, R.steps.length) : mode ? E.finishPhraseGame(S, now, mode, R.errors) : E.finishRound(S, now, R.errors, rnd);
+    const fin = mode === "pv" ? E.finishPvGame(S, now, R.errors) : mode === "role" ? E.finishRoleplay(S, now, roleId, R.correct, R.steps.length) : mode ? E.finishPhraseGame(S, now, mode, R.errors) : E.finishRound(S, now, R.errors, rnd);
     R.xp += fin.bonus;
     let regained = false;
     if (!mode && R.practice && R.correct >= Math.ceil(R.steps.length * 0.6)) { S.lives = Math.min(E.MAX_LIVES, S.lives + 1); S.livesTs = now; regained = true; }
@@ -1086,13 +1181,13 @@
     save();
 
     const total = R.results.filter(x => x === true || x === false).length;
-    const title = mode === "role" ? (R.errors === 0 ? "¡Conversación impecable!" : "¡Conversación terminada!") : mode === "meet" ? (R.errors === 0 ? "¡Reunión impecable!" : "¡Reunión terminada!")
+    const title = mode === "pv" ? (R.errors === 0 ? "¡Partida perfecta!" : "¡Partida terminada!") : mode === "role" ? (R.errors === 0 ? "¡Conversación impecable!" : "¡Conversación terminada!") : mode === "meet" ? (R.errors === 0 ? "¡Reunión impecable!" : "¡Reunión terminada!")
       : mode === "shadow" ? (R.errors === 0 ? "¡Eco perfecto!" : "¡Bien repetido!")
       : R.errors === 0 && total > 0 ? "¡Ronda perfecta!" : R.correct >= total * 0.7 ? "¡Buena ronda!" : "Ronda completa";
-    const eyebrow = mode === "role" ? "Role-play · " + BY_RP[roleId].title : mode === "meet" ? "Simulador de reunión" : mode === "shadow" ? "Escuchar y repetir" : "Ronda terminada";
+    const eyebrow = mode === "pv" ? "Phrasal verbs" : mode === "role" ? "Role-play · " + BY_RP[roleId].title : mode === "meet" ? "Simulador de reunión" : mode === "shadow" ? "Escuchar y repetir" : "Ronda terminada";
     let html = '<p class="eyebrow">' + eyebrow + '</p><h2 class="sum-title">' + title + "</h2>";
     html += '<div class="sum-grid">' +
-      mini("+" + R.xp, "puntos") + mini(R.correct + "/" + total, "aciertos") + (mode === "role" ? mini(S.roles[roleId].best + "%", "tu mejor marca") : mini(R.introduced.length, mode ? "frases nuevas" : "nuevas")) + "</div>";
+      mini("+" + R.xp, "puntos") + mini(R.correct + "/" + total, "aciertos") + (mode === "role" ? mini(S.roles[roleId].best + "%", "tu mejor marca") : mini(R.introduced.length, mode === "pv" ? "phrasal verbs nuevos" : mode ? "frases nuevas" : "nuevas")) + "</div>";
     if (fin.bonus) html += '<p class="hint">+' + fin.bonus + " XP de bonus por no fallar ninguna.</p>";
     if (fin.streakInfo.changed) html += '<p class="hint">Racha: ' + S.streak.current + " día" + (S.streak.current === 1 ? "" : "s") + (fin.streakInfo.earnedFreeze ? ". Ganaste un protector de racha." : fin.streakInfo.usedFreeze ? ". Un protector salvó tu racha." : ".") + "</p>";
     if (regained) html += '<p class="hint">Recuperaste una vida.</p>';
@@ -1102,12 +1197,12 @@
     }
     if (badges.length) html += badges.map(b => '<div class="chest"><strong>Nuevo logro: ' + esc(b.name) + "</strong><span>" + esc(b.desc) + "</span></div>").join("");
     const goalLeft = Math.max(0, Number(S.settings.goalMin) * 60000 - d.ms);
-    html += '<div class="sum-actions"><button type="button" class="btn btn-play" id="sum-again">' + (mode === "role" ? "Otra conversación" : mode === "meet" ? "Otra reunión" : mode === "shadow" ? "Repetir otras 6" : goalLeft > 0 ? "Otra ronda (" + (Math.ceil(goalLeft / 60000) === 1 ? "falta 1 min" : "faltan " + Math.ceil(goalLeft / 60000) + " min") + ")" : "Otra ronda") + '</button><button type="button" class="btn btn-ghost" id="sum-home">Terminar por hoy</button></div>';
+    html += '<div class="sum-actions"><button type="button" class="btn btn-play" id="sum-again">' + (mode === "pv" ? "Volver a los phrasal verbs" : mode === "role" ? "Otra conversación" : mode === "meet" ? "Otra reunión" : mode === "shadow" ? "Repetir otras 6" : goalLeft > 0 ? "Otra ronda (" + (Math.ceil(goalLeft / 60000) === 1 ? "falta 1 min" : "faltan " + Math.ceil(goalLeft / 60000) + " min") + ")" : "Otra ronda") + '</button><button type="button" class="btn btn-ghost" id="sum-home">Terminar por hoy</button></div>';
     $("summary").innerHTML = html;
     R = null;
     go("summary");
     if (leveled || badges.length) { sfx.level(); burst(); }
-    $("sum-again").addEventListener("click", () => (mode === "role" ? startRoleplay() : mode ? startPhraseGame(mode) : startRound()));
+    $("sum-again").addEventListener("click", () => (mode === "pv" ? go("pv") : mode === "role" ? startRoleplay() : mode ? startPhraseGame(mode) : startRound()));
     $("sum-home").addEventListener("click", () => go("home"));
     const chest = $("chest");
     if (chest) chest.addEventListener("click", () => {
@@ -1480,6 +1575,7 @@
   $("btn-snake-home").addEventListener("click", () => go("snake"));
   $("btn-meet-home").addEventListener("click", () => go("meet"));
   $("btn-cross-home").addEventListener("click", () => go("cross"));
+  $("btn-pv-home").addEventListener("click", () => go("pv"));
   $("btn-role-start").addEventListener("click", () => startRoleplay());
   $("btn-meet-start").addEventListener("click", () => startPhraseGame("meet"));
   $("btn-shadow-start").addEventListener("click", () => startPhraseGame("shadow"));

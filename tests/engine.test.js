@@ -470,3 +470,20 @@ test("crucigrama: las palabras se cruzan bien y la grilla coincide con las respu
   assert.strictEqual(xp, 34);
   assert.strictEqual(s.stats.crosswords, 1);
 });
+
+test("menú de phrasal verbs: la partida usa solo la lista filtrada", () => {
+  const s = E.newState(T0);
+  const ups = PHRASALS.filter(x => x.part === "up");
+  for (let round = 0; round < 6; round++) {
+    const steps = E.buildPvGame(s, PHRASALS, ups, T0 + round, E.makeRng(round + 1), 8);
+    assert.ok(steps.length >= 6);
+    steps.forEach(q => assert.strictEqual(E.allPhrasals().find(x => x.id === q.v).part, "up"));
+    assert.ok(steps.filter(q => q.kind === "pvintro").length <= 3);
+    steps.filter(q => q.kind !== "pvintro").forEach(q => assert.ok(E.checkAnswer(q, q.answer)));
+    steps.filter(q => q.kind === "pvintro").forEach(q => E.introducePv(s, q.v, T0));
+  }
+  const one = E.buildPvGame(s, PHRASALS, [PHRASALS[5]], T0, E.makeRng(9), 8);
+  assert.ok(one.length >= 1 && one.every(q => q.v === PHRASALS[5].id));
+  E.finishPvGame(s, T0, 0);
+  assert.strictEqual(s.stats.pvGames, 1);
+});

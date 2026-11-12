@@ -10,7 +10,7 @@ Juego para el teléfono que enseña **1000 palabras en inglés**: las 200 más u
 - **Prueba de nivel y «Ya la sé»:** saltea las palabras que ya conocés. Hasta 20 palabras nuevas por día.
 - **Mis 100 frases de reunión:** las frases que más usás en tus reuniones de Teams (saludo inicial, inicio de conversación, consultas técnicas y saludo final), traducidas al inglés de reunión. Se practican en un **simulador de reunión**, en **escuchar y repetir** (decirlas en voz alta) y dentro de cada ronda diaria. Lista completa en [PHRASES.md](PHRASES.md).
 - **Preposiciones con truco:** 21 reglas (tiempo, lugar, movimiento, combinaciones de trabajo como *depend on* o *responsible for* y verbos que no llevan preposición), cada una con el porqué y ejemplos. En la ronda aparecen oraciones con truco donde una opción es el error típico de quien habla castellano; en Avanzado corregís la oración escribiendo. Lista completa en [PREPOSITIONS.md](PREPOSITIONS.md).
-- **200 phrasal verbs:** los más comunes, por frecuencia, cada uno con el ancla de su partícula (*up* = completar, *off* = separar). Entran de a pocos en las rondas y se preguntan por significado, por partícula y escribiéndolos. Lista en [PHRASALS.md](PHRASALS.md).
+- **200 phrasal verbs:** los más comunes, por frecuencia, cada uno con el ancla de su partícula (*up* = completar, *off* = separar). Entran de a pocos en las rondas y se preguntan por significado, por partícula y escribiéndolos. Tienen su propio menú, desde el inicio, para buscarlos, filtrarlos por partícula, ver el ejemplo y el ancla, y jugar una partida con los que filtraste. Lista en [PHRASALS.md](PHRASALS.md).
 - **Role-play de tus reuniones:** 16 conversaciones por turnos (revisión de FDD, factura anticipo, planning, demo, go-live...). Te hablan en inglés y respondés eligiendo, armando o escribiendo. Guion completo en [ROLEPLAYS.md](ROLEPLAYS.md).
 - **Crucigramas:** grillas de 7 palabras armadas con lo que ya viste, con teclado propio y pistas.
 - **Aprendizaje más rápido:** ráfagas de estructura (3 oraciones modelo y la cuarta la armás vos) y pistas graduales (el primer error al escribir da una pista y otra oportunidad).
@@ -88,4 +88,4 @@ npm run preps          # regenera PREPOSITIONS.md después de editar app/js/prep
 npm run build:single   # genera dist/word-beat.html, todo en un archivo
 ```
 
-Si cambiás archivos de `app/`, subí la versión de la caché en `app/sw.js` (por ejemplo, `wordbeat-v6` → `wordbeat-v7`) para que los teléfonos descarguen la versión nueva.
+Si cambiás archivos de `app/`, subí la versión de la caché en `app/sw.js` (por ejemplo, `wordbeat-v7` → `wordbeat-v8`) para que los teléfonos descarguen la versión nueva.

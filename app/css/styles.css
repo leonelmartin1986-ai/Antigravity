@@ -473,3 +473,10 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .cw-item { text-align: left; border: 0; border-radius: var(--r-sm); background: var(--surface); color: var(--ink); padding: 9px 12px; font-size: 16px; }
 .cw-item.on { box-shadow: inset 0 0 0 2px var(--accent); }
 .cw-item.done { color: var(--ok); background: var(--ok-bg); }
+
+/* menú de phrasal verbs */
+.pv-item.open .word-row { border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: inset 0 0 0 2px var(--accent); }
+.pv-detail { display: grid; gap: 10px; padding: 12px 14px 14px; background: var(--surface); border-radius: 0 0 var(--r-md) var(--r-md); box-shadow: inset 0 0 0 2px var(--accent); margin-top: -2px; }
+.pv-detail .hint, .pv-detail .example { margin: 0; }
+.pv-detail .example .speak { text-align: left; }
+#btn-pv-play:disabled { opacity: .5; }
